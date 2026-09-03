@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 
-export const EVENT_TYPES = [
+const EVENT_TYPES = [
   "customer.created",
   "case.created",
   "case.assigned",
