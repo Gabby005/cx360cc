@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 
-export const KNOWN_TRIGGERS = [
+const KNOWN_TRIGGERS = [
   "customer.created",
   "case.created",
   "case.assigned",
