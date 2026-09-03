@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Environment variables are set in the Netlify dashboard (Site settings ->
+# Environment variables), NOT committed here. See .env.example for the
+# full list CX360 needs: DATABASE_URL, NEXTAUTH_URL, NEXTAUTH_SECRET,
+# CRON_SECRET, etc. CRON_SECRET must match what's used in
+# netlify/functions/*.ts below.

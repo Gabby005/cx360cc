@@ -1,0 +1,449 @@
+// CX360 — Prisma schema
+// Multi-tenant: every business table carries tenantId.
+// Run `npx prisma migrate dev --name init` after configuring DATABASE_URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy, Identity & RBAC
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  users        Membership[]
+  customers    Customer[]
+  cases        Case[]
+  slaPolicies  SlaPolicy[]
+  queues       Queue[]
+  teams        Team[]
+  workflows    WorkflowRule[]
+  articles     KnowledgeArticle[]
+  surveys      Survey[]
+  apiKeys      ApiKey[]
+  webhooks     WebhookSubscription[]
+  events       Event[]
+  auditLogs    AuditLog[]
+  workflowRuns WorkflowExecutionLog[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+
+  memberships       Membership[]
+  assignedCases     Case[]           @relation("AssignedAgent")
+  interactions      Interaction[]
+  qaReviewsGiven    QaReview[]       @relation("Reviewer")
+  qaReviewsReceived QaReview[]       @relation("ReviewedAgent")
+  caseNotes         CaseNote[]
+}
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+  AGENT
+  READ_ONLY
+}
+
+model Membership {
+  id       String @id @default(cuid())
+  userId   String
+  tenantId String
+  role     Role   @default(AGENT)
+
+  user   User   @relation(fields: [userId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  team   Team?  @relation(fields: [teamId], references: [id])
+  teamId String?
+
+  @@unique([userId, tenantId])
+}
+
+model Team {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String
+
+  tenant  Tenant       @relation(fields: [tenantId], references: [id])
+  members Membership[]
+  queues  Queue[]
+}
+
+// ---------------------------------------------------------------------------
+// Customer 360
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id            String   @id @default(cuid())
+  tenantId      String
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String?
+  segment       String?  // e.g. "Premier", "Retail", "SME"
+  lifetimeValue Decimal? @db.Decimal(14, 2)
+  sentimentAvg  Float?   // rolling avg sentiment score, -1..1
+  customFields  Json?    // tenant-defined custom fields
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  products     CustomerProduct[]
+  interactions Interaction[]
+  cases        Case[]
+  feedback     FeedbackResponse[]
+
+  @@index([tenantId, email])
+  @@index([tenantId, lastName])
+}
+
+model CustomerProduct {
+  id         String   @id @default(cuid())
+  customerId String
+  productName String
+  accountRef  String?
+  status      String  @default("active")
+  openedAt    DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+}
+
+enum Channel {
+  VOICE
+  EMAIL
+  SMS
+  WHATSAPP
+  CHAT
+  PORTAL
+  SOCIAL
+}
+
+enum InteractionStatus {
+  NEW         // arrived, not yet triaged — this is what populates the Inbox queue
+  IN_PROGRESS // an agent has replied or is actively handling it
+  LINKED      // converted to / linked with a Case
+  CLOSED      // triaged with no case needed (e.g. spam, already resolved)
+}
+
+model Interaction {
+  id          String            @id @default(cuid())
+  tenantId    String
+  customerId  String
+  agentId     String?
+  channel     Channel
+  direction   String            // inbound | outbound
+  status      InteractionStatus @default(NEW)
+  summary     String?
+  transcript  String?
+  sentiment   Float?            // -1..1
+  durationSec Int?
+  caseId      String?
+  createdAt   DateTime          @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  agent    User?    @relation(fields: [agentId], references: [id])
+  case     Case?    @relation(fields: [caseId], references: [id])
+
+  @@index([tenantId, customerId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Case Management
+// ---------------------------------------------------------------------------
+
+enum CaseType {
+  SERVICE_REQUEST
+  COMPLAINT
+  INQUIRY
+  INCIDENT
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CaseStatus {
+  NEW
+  OPEN
+  PENDING_CUSTOMER
+  ESCALATED
+  RESOLVED
+  CLOSED
+}
+
+model Queue {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String
+  teamId   String?
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  team   Team?   @relation(fields: [teamId], references: [id])
+  cases  Case[]
+}
+
+model Case {
+  id           String     @id @default(cuid())
+  tenantId     String
+  customerId   String
+  type         CaseType   @default(SERVICE_REQUEST)
+  priority     Priority   @default(MEDIUM)
+  status       CaseStatus @default(NEW)
+  subject      String
+  description  String?
+  category     String?
+  queueId      String?
+  assignedToId String?
+  slaPolicyId  String?
+  responseDueAt   DateTime?
+  resolutionDueAt DateTime?
+  respondedAt     DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  assignedTo  User?         @relation("AssignedAgent", fields: [assignedToId], references: [id])
+  queue       Queue?        @relation(fields: [queueId], references: [id])
+  slaPolicy   SlaPolicy?    @relation(fields: [slaPolicyId], references: [id])
+  interactions Interaction[]
+  notes       CaseNote[]
+  qaReviews   QaReview[]
+  feedback    FeedbackResponse[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, assignedToId])
+  @@index([tenantId, priority, status])
+}
+
+model CaseNote {
+  id        String   @id @default(cuid())
+  caseId    String
+  authorId  String
+  body      String
+  internal  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  case   Case @relation(fields: [caseId], references: [id])
+  author User @relation(fields: [authorId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// SLA Engine
+// ---------------------------------------------------------------------------
+
+model SlaPolicy {
+  id               String   @id @default(cuid())
+  tenantId         String
+  name             String
+  priority         Priority
+  responseMinutes  Int      // e.g. Critical = 15
+  resolutionMinutes Int     // e.g. Critical = 120
+  businessHoursOnly Boolean @default(false)
+  warningThresholdPct Int   @default(80)
+  escalationThresholdPct Int @default(90)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  cases  Case[]
+
+  @@unique([tenantId, priority])
+}
+
+// ---------------------------------------------------------------------------
+// Workflow Automation
+// ---------------------------------------------------------------------------
+
+model WorkflowRule {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  triggerType String   // e.g. "case.created", "sla.warning"
+  conditions  Json      // [{ field, operator, value }]
+  actions     Json      // [{ type, params }]
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  runs   WorkflowExecutionLog[]
+}
+
+// One row per (rule, event) evaluation — written whether or not conditions
+// matched, so Admin > Workflows can show "why didn't this fire" as well as
+// "what did this do". Keeps the engine's decisions auditable.
+model WorkflowExecutionLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  ruleId      String
+  eventId     String
+  matched     Boolean
+  actionsRun  Json?    // [{ type, params, result }]
+  error       String?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id])
+  rule   WorkflowRule @relation(fields: [ruleId], references: [id])
+  event  Event        @relation(fields: [eventId], references: [id])
+
+  @@index([tenantId, ruleId])
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge Base
+// ---------------------------------------------------------------------------
+
+enum ArticleStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+model KnowledgeArticle {
+  id        String        @id @default(cuid())
+  tenantId  String
+  title     String
+  body      String
+  category  String?
+  status    ArticleStatus @default(DRAFT)
+  version   Int           @default(1)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Feedback (CSAT / NPS / CES)
+// ---------------------------------------------------------------------------
+
+enum SurveyType {
+  CSAT
+  NPS
+  CES
+}
+
+model Survey {
+  id       String     @id @default(cuid())
+  tenantId String
+  name     String
+  type     SurveyType
+  questions Json
+
+  tenant    Tenant             @relation(fields: [tenantId], references: [id])
+  responses FeedbackResponse[]
+}
+
+model FeedbackResponse {
+  id         String   @id @default(cuid())
+  tenantId   String
+  surveyId   String
+  customerId String
+  caseId     String?
+  score      Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  survey   Survey   @relation(fields: [surveyId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+  case     Case?    @relation(fields: [caseId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Quality Management
+// ---------------------------------------------------------------------------
+
+model QaReview {
+  id             String   @id @default(cuid())
+  caseId         String
+  reviewerId     String
+  reviewedAgentId String
+  scorecard      Json     // [{ criterion, score, maxScore, comment }]
+  overallScore   Float
+  coachingNotes  String?
+  createdAt      DateTime @default(now())
+
+  case         Case @relation(fields: [caseId], references: [id])
+  reviewer     User @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewedAgent User @relation("ReviewedAgent", fields: [reviewedAgentId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Integration Hub
+// ---------------------------------------------------------------------------
+
+model ApiKey {
+  id         String   @id @default(cuid())
+  tenantId   String
+  name       String
+  keyHash    String
+  lastUsedAt DateTime?
+  createdAt  DateTime @default(now())
+  revokedAt  DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model WebhookSubscription {
+  id        String   @id @default(cuid())
+  tenantId  String
+  url       String
+  secret    String
+  events    String[] // e.g. ["case.created", "sla.breached"]
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+// Outbox pattern: domain events written in-transaction, dispatched async.
+model Event {
+  id         String   @id @default(cuid())
+  tenantId   String
+  type       String   // "customer.created", "case.assigned", ...
+  payload    Json
+  dispatched Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  workflowRuns WorkflowExecutionLog[]
+
+  @@index([tenantId, dispatched])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, entity, entityId])
+}

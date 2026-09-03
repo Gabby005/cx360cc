@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-ink-950 antialiased;
+  }
+  .dark body {
+    @apply bg-ink-950 text-surface;
+  }
+
+  /* Visible keyboard focus everywhere — never suppressed. */
+  :focus-visible {
+    outline: 2px solid theme("colors.brand.DEFAULT");
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-raised dark:bg-ink-900 border border-line-light dark:border-line-dark rounded-lg;
+  }
+  .kbd {
+    @apply font-mono text-[11px] px-1.5 py-0.5 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-800;
+  }
+}
