@@ -63,19 +63,19 @@ export function InboxClient({ initialItems, customers }: { initialItems: Item[];
   return (
     <div className="h-full grid grid-cols-1 lg:grid-cols-[260px_1fr_320px]">
       {/* Channel + queue pane */}
-      <div className="border-r border-line-light dark:border-line-dark overflow-y-auto flex flex-col">
-        <div className="px-4 py-3 border-b border-line-light dark:border-line-dark">
-          <div className="flex items-center justify-between mb-2">
+      <div className="bg-surface-raised dark:bg-ink-900 border-r border-line-light dark:border-line-dark overflow-y-auto flex flex-col">
+        <div className="px-4 py-4 border-b border-line-light dark:border-line-dark">
+          <div className="flex items-center justify-between mb-3">
             <h1 className="text-sm font-semibold">Inbox</h1>
             <button
               onClick={() => setShowSimulate((v) => !v)}
               title="Simulate an incoming message (stand-in for a real channel webhook)"
-              className="text-ink-950/50 dark:text-surface/50 hover:text-brand"
+              className="w-7 h-7 rounded-full grid place-items-center text-ink-950/50 dark:text-surface/50 hover:bg-ink-950/5 dark:hover:bg-surface/10 hover:text-brand"
             >
               <Plus size={16} />
             </button>
           </div>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1.5">
             <FilterPill active={channelFilter === "all"} onClick={() => setChannelFilter("all")} label="All" />
             {CHANNELS.map((c) => (
               <FilterPill key={c} active={channelFilter === c} onClick={() => setChannelFilter(c)} label={c} />
@@ -95,26 +95,28 @@ export function InboxClient({ initialItems, customers }: { initialItems: Item[];
 
         <ul className="flex-1">
           {filtered.map((item) => {
-            const Icon = CHANNEL_ICON[item.channel] ?? MessageSquare;
             return (
               <li key={item.id}>
                 <button
                   onClick={() => selectItem(item.id)}
-                  className={`w-full text-left px-4 py-3 border-b border-line-light dark:border-line-dark hover:bg-surface dark:hover:bg-ink-900 ${
-                    selectedId === item.id ? "bg-brand-light/40 dark:bg-brand/10" : ""
+                  className={`w-full text-left px-4 py-3 border-b border-line-light dark:border-line-dark hover:bg-surface dark:hover:bg-ink-800 transition-colors ${
+                    selectedId === item.id ? "bg-brand-light/50 dark:bg-brand/10" : ""
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-sm font-medium truncate flex items-center gap-1.5">
-                      <Icon size={12} className="text-ink-950/40 dark:text-surface/40 shrink-0" />
+                  <div className="flex items-center gap-2.5 mb-1">
+                    <span className="avatar w-7 h-7 text-[10px] shrink-0">
+                      {item.customer.firstName[0]}
+                      {item.customer.lastName[0]}
+                    </span>
+                    <span className="text-sm font-medium truncate flex-1">
                       {item.customer.firstName} {item.customer.lastName}
                     </span>
-                    <span className={item.status === "NEW" ? "pill-warning shrink-0" : "pill-neutral shrink-0"}>
+                    <span className={item.status === "NEW" ? "pill-warning shrink-0 !py-0.5" : "pill-neutral shrink-0 !py-0.5"}>
                       {item.status.replace("_", " ")}
                     </span>
                   </div>
-                  <p className="text-xs text-ink-950/60 dark:text-surface/60 truncate">{item.summary}</p>
-                  <p className="text-[10px] text-ink-950/40 dark:text-surface/40 mt-0.5">
+                  <p className="text-xs text-ink-950/60 dark:text-surface/60 truncate pl-9">{item.summary}</p>
+                  <p className="text-[10px] text-ink-950/40 dark:text-surface/40 mt-0.5 pl-9">
                     {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
                   </p>
                 </button>
@@ -147,7 +149,7 @@ export function InboxClient({ initialItems, customers }: { initialItems: Item[];
       </div>
 
       {/* Actions pane */}
-      <div className="border-l border-line-light dark:border-line-dark overflow-y-auto p-4 hidden lg:block">
+      <div className="bg-surface-raised dark:bg-ink-900 border-l border-line-light dark:border-line-dark overflow-y-auto p-4 hidden lg:block">
         {selected && !selected.caseId && (
           <ConvertToCaseForm
             interactionId={selected.id}
@@ -180,7 +182,7 @@ export function InboxClient({ initialItems, customers }: { initialItems: Item[];
               setSelectedId(null);
               refreshQueue();
             }}
-            className="mt-4 text-xs px-3 py-1.5 rounded border border-line-light dark:border-line-dark hover:bg-surface dark:hover:bg-ink-900 w-full"
+            className="btn-secondary mt-4 w-full text-xs"
           >
             Close without a case
           </button>
@@ -194,8 +196,8 @@ function FilterPill({ active, onClick, label }: { active: boolean; onClick: () =
   return (
     <button
       onClick={onClick}
-      className={`px-2 py-0.5 rounded text-[11px] font-medium ${
-        active ? "bg-brand text-white" : "bg-surface dark:bg-ink-900 hover:bg-line-light dark:hover:bg-ink-800"
+      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
+        active ? "bg-brand text-white" : "bg-surface dark:bg-ink-800 text-ink-950/70 dark:text-surface/70 hover:bg-line-light dark:hover:bg-ink-700"
       }`}
     >
       {label}
@@ -251,14 +253,16 @@ function ThreadView({
           thread.map((m) => (
             <div key={m.id} className={`max-w-[80%] ${m.direction === "outbound" ? "ml-auto" : ""}`}>
               <div
-                className={`rounded-lg px-3 py-2 text-sm ${
-                  m.direction === "outbound" ? "bg-brand text-white" : "card"
+                className={`rounded-2xl px-3.5 py-2.5 text-sm ${
+                  m.direction === "outbound"
+                    ? "bg-brand text-white rounded-br-md"
+                    : "bg-surface-raised dark:bg-ink-900 border border-line-light dark:border-line-dark rounded-bl-md"
                 }`}
               >
                 {m.summary}
               </div>
               <p
-                className={`text-[10px] text-ink-950/40 dark:text-surface/40 mt-0.5 ${
+                className={`text-[10px] text-ink-950/40 dark:text-surface/40 mt-1 ${
                   m.direction === "outbound" ? "text-right" : ""
                 }`}
               >
@@ -281,12 +285,12 @@ function ThreadView({
           }}
           placeholder="Reply on this channel…"
           rows={2}
-          className="flex-1 px-3 py-2 rounded border border-line-light dark:border-line-dark bg-surface-raised dark:bg-ink-900 text-sm resize-none"
+          className="input flex-1 resize-none"
         />
         <button
           onClick={send}
           disabled={sending || !message.trim()}
-          className="px-3 rounded bg-brand text-white hover:bg-brand-dark disabled:opacity-50"
+          className="btn-primary px-3.5"
         >
           <Send size={16} />
         </button>
@@ -334,19 +338,11 @@ function ConvertToCaseForm({
       <h3 className="text-xs font-semibold text-ink-950/50 dark:text-surface/50 tracking-wide">Convert to case</h3>
       <div>
         <label className="block text-xs font-medium mb-1">Subject</label>
-        <input
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          className="w-full px-2 py-1.5 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-sm"
-        />
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} className="input" />
       </div>
       <div>
         <label className="block text-xs font-medium mb-1">Type</label>
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-          className="w-full px-2 py-1.5 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-sm"
-        >
+        <select value={type} onChange={(e) => setType(e.target.value)} className="input">
           {["SERVICE_REQUEST", "COMPLAINT", "INQUIRY", "INCIDENT"].map((t) => (
             <option key={t} value={t}>
               {t.replace("_", " ")}
@@ -356,11 +352,7 @@ function ConvertToCaseForm({
       </div>
       <div>
         <label className="block text-xs font-medium mb-1">Priority</label>
-        <select
-          value={priority}
-          onChange={(e) => setPriority(e.target.value)}
-          className="w-full px-2 py-1.5 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-sm"
-        >
+        <select value={priority} onChange={(e) => setPriority(e.target.value)} className="input">
           {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((p) => (
             <option key={p} value={p}>
               {p}
@@ -369,11 +361,7 @@ function ConvertToCaseForm({
         </select>
       </div>
       {error && <p className="text-xs text-sla-breach">{error}</p>}
-      <button
-        type="submit"
-        disabled={saving || !subject.trim()}
-        className="w-full text-sm px-3 py-1.5 rounded bg-brand text-white font-medium hover:bg-brand-dark disabled:opacity-60"
-      >
+      <button type="submit" disabled={saving || !subject.trim()} className="btn-primary w-full text-sm">
         {saving ? "Creating…" : "Create case & link"}
       </button>
     </form>
@@ -422,26 +410,18 @@ function SimulateForm({
   }
 
   return (
-    <form onSubmit={submit} className="p-4 border-b border-line-light dark:border-line-dark space-y-2 bg-surface dark:bg-ink-900">
+    <form onSubmit={submit} className="p-4 border-b border-line-light dark:border-line-dark space-y-2 bg-surface dark:bg-ink-800">
       <p className="text-[11px] text-ink-950/50 dark:text-surface/50">
         Stand-in for a real channel webhook — wires the same ingest path a live provider would call.
       </p>
-      <select
-        value={customerId}
-        onChange={(e) => setCustomerId(e.target.value)}
-        className="w-full px-2 py-1 rounded border border-line-light dark:border-line-dark bg-surface-raised dark:bg-ink-800 text-xs"
-      >
+      <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="input text-xs !py-1.5">
         {customers.map((c) => (
           <option key={c.id} value={c.id}>
             {c.firstName} {c.lastName}
           </option>
         ))}
       </select>
-      <select
-        value={channel}
-        onChange={(e) => setChannel(e.target.value)}
-        className="w-full px-2 py-1 rounded border border-line-light dark:border-line-dark bg-surface-raised dark:bg-ink-800 text-xs"
-      >
+      <select value={channel} onChange={(e) => setChannel(e.target.value)} className="input text-xs !py-1.5">
         {CHANNELS.map((c) => (
           <option key={c} value={c}>
             {c}
@@ -453,10 +433,10 @@ function SimulateForm({
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Message content…"
         rows={2}
-        className="w-full px-2 py-1 rounded border border-line-light dark:border-line-dark bg-surface-raised dark:bg-ink-800 text-xs resize-none"
+        className="input text-xs resize-none"
       />
       {error && <p className="text-[11px] text-sla-breach">{error}</p>}
-      <button type="submit" className="w-full text-xs py-1 rounded bg-brand text-white font-medium hover:bg-brand-dark">
+      <button type="submit" className="btn-primary w-full text-xs !py-1.5">
         Add to inbox
       </button>
     </form>

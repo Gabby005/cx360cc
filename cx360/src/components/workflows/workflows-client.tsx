@@ -43,7 +43,7 @@ export function WorkflowsClient({ rules, canEdit }: { rules: Rule[]; canEdit: bo
         {canEdit && (
           <button
             onClick={() => setShowForm((v) => !v)}
-            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded bg-brand text-white font-medium hover:bg-brand-dark"
+            className="btn-primary text-xs"
           >
             <Plus size={14} /> New rule
           </button>
@@ -254,12 +254,12 @@ function RuleForm({ onCreated }: { onCreated: () => void }) {
                 value={c.field}
                 onChange={(e) => updateAt(setConditions, i, { field: e.target.value })}
                 placeholder="field, e.g. priority"
-                className="flex-1 px-2 py-1 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-xs"
+                className="input flex-1 !py-1.5 text-xs"
               />
               <select
                 value={c.operator}
                 onChange={(e) => updateAt(setConditions, i, { operator: e.target.value })}
-                className="px-2 py-1 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-xs"
+                className="input !py-1.5 text-xs"
               >
                 {OPERATORS.map((o) => (
                   <option key={o} value={o}>
@@ -271,7 +271,7 @@ function RuleForm({ onCreated }: { onCreated: () => void }) {
                 value={c.value}
                 onChange={(e) => updateAt(setConditions, i, { value: e.target.value })}
                 placeholder="value, e.g. CRITICAL"
-                className="flex-1 px-2 py-1 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-xs"
+                className="input flex-1 !py-1.5 text-xs"
               />
               <button
                 type="button"
@@ -309,7 +309,7 @@ function RuleForm({ onCreated }: { onCreated: () => void }) {
       <button
         type="submit"
         disabled={saving}
-        className="text-sm px-4 py-1.5 rounded bg-brand text-white font-medium hover:bg-brand-dark disabled:opacity-60"
+        className="btn-primary text-sm"
       >
         {saving ? "Creating…" : "Create rule"}
       </button>
@@ -342,7 +342,7 @@ function ActionRowEditor({
       <select
         value={action.type}
         onChange={(e) => setType(e.target.value as ActionRow["type"])}
-        className="px-2 py-1 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-xs shrink-0"
+        className="input !py-1.5 text-xs shrink-0"
       >
         {ACTION_TYPES.map((t) => (
           <option key={t} value={t}>
@@ -358,7 +358,7 @@ function ActionRowEditor({
             value={value}
             onChange={(e) => onChange({ ...action, params: { ...action.params, [key]: e.target.value } })}
             placeholder={key}
-            className="px-2 py-1 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-xs w-32"
+            className="input !py-1.5 text-xs w-32"
           />
         ))}
       </div>

@@ -93,7 +93,7 @@ function ApiKeysPanel({ initialKeys }: { initialKeys: ApiKeyItem[] }) {
         <h2 className="text-sm font-semibold">API keys</h2>
         <button
           onClick={() => { setShowForm((v) => !v); setRawKey(null); }}
-          className="flex items-center gap-1 text-xs px-3 py-1.5 rounded bg-brand text-white font-medium hover:bg-brand-dark"
+          className="btn-primary text-xs"
         >
           <Plus size={14} /> New key
         </button>
@@ -105,10 +105,10 @@ function ApiKeysPanel({ initialKeys }: { initialKeys: ApiKeyItem[] }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Key name, e.g. Core Banking Sync"
-            className="w-full px-2 py-1.5 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-sm"
+            className="input"
           />
           {error && <p className="text-xs text-sla-breach">{error}</p>}
-          <button type="submit" className="text-sm px-3 py-1.5 rounded bg-brand text-white font-medium hover:bg-brand-dark">
+          <button type="submit" className="btn-primary text-sm">
             Generate key
           </button>
         </form>
@@ -223,7 +223,7 @@ function WebhooksPanel({ initialWebhooks }: { initialWebhooks: WebhookItem[] }) 
         <h2 className="text-sm font-semibold">Webhooks</h2>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-1 text-xs px-3 py-1.5 rounded bg-brand text-white font-medium hover:bg-brand-dark"
+          className="btn-primary text-xs"
         >
           <Plus size={14} /> New webhook
         </button>
@@ -235,7 +235,7 @@ function WebhooksPanel({ initialWebhooks }: { initialWebhooks: WebhookItem[] }) 
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://your-system.example.com/webhooks/cx360"
-            className="w-full px-2 py-1.5 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-sm"
+            className="input"
           />
           <div className="flex flex-wrap gap-2">
             {EVENT_TYPES.map((evt) => (
@@ -252,7 +252,7 @@ function WebhooksPanel({ initialWebhooks }: { initialWebhooks: WebhookItem[] }) 
             ))}
           </div>
           {error && <p className="text-xs text-sla-breach">{error}</p>}
-          <button type="submit" className="text-sm px-3 py-1.5 rounded bg-brand text-white font-medium hover:bg-brand-dark">
+          <button type="submit" className="btn-primary text-sm">
             Create webhook
           </button>
         </form>

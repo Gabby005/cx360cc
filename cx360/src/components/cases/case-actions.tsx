@@ -6,6 +6,19 @@ import { useRouter } from "next/navigation";
 const STATUSES = ["NEW", "OPEN", "PENDING_CUSTOMER", "ESCALATED", "RESOLVED", "CLOSED"];
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
+const PRIORITY_PILL: Record<string, string> = {
+  CRITICAL: "pill-breach",
+  HIGH: "pill-warning",
+  MEDIUM: "pill-neutral",
+  LOW: "pill-neutral",
+};
+
+const STATUS_PILL: Record<string, string> = {
+  ESCALATED: "pill-breach",
+  RESOLVED: "pill-ok",
+  CLOSED: "pill-neutral",
+};
+
 export function CaseActions({
   caseId,
   status,
@@ -22,6 +35,8 @@ export function CaseActions({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [localStatus, setLocalStatus] = useState(status);
+  const [localPriority, setLocalPriority] = useState(priority);
 
   async function patch(body: Record<string, unknown>) {
     setError(null);
@@ -39,12 +54,19 @@ export function CaseActions({
   }
 
   return (
-    <div className="card p-4 flex flex-wrap items-center gap-4 text-sm">
-      <Field label="Status">
+    <div className="card p-4 space-y-4">
+      <h2 className="text-xs font-semibold text-ink-950/50 dark:text-surface/50 tracking-wide">
+        Ticket properties
+      </h2>
+
+      <Field label="Status" pillClass={STATUS_PILL[localStatus] ?? "pill-neutral"} pillLabel={localStatus.replace("_", " ")}>
         <select
-          defaultValue={status}
-          onChange={(e) => patch({ status: e.target.value })}
-          className="px-2 py-1 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-sm"
+          value={localStatus}
+          onChange={(e) => {
+            setLocalStatus(e.target.value);
+            patch({ status: e.target.value });
+          }}
+          className="input"
         >
           {STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -54,11 +76,14 @@ export function CaseActions({
         </select>
       </Field>
 
-      <Field label="Priority">
+      <Field label="Priority" pillClass={PRIORITY_PILL[localPriority] ?? "pill-neutral"} pillLabel={localPriority}>
         <select
-          defaultValue={priority}
-          onChange={(e) => patch({ priority: e.target.value })}
-          className="px-2 py-1 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-sm"
+          value={localPriority}
+          onChange={(e) => {
+            setLocalPriority(e.target.value);
+            patch({ priority: e.target.value });
+          }}
+          className="input"
         >
           {PRIORITIES.map((p) => (
             <option key={p} value={p}>
@@ -72,7 +97,7 @@ export function CaseActions({
         <select
           defaultValue={assignedToId ?? ""}
           onChange={(e) => patch({ assignedToId: e.target.value || null })}
-          className="px-2 py-1 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-900 text-sm"
+          className="input"
         >
           <option value="">Unassigned</option>
           {agents.map((a) => (
@@ -83,17 +108,30 @@ export function CaseActions({
         </select>
       </Field>
 
-      {isPending && <span className="text-xs text-ink-950/40 dark:text-surface/40">Saving…</span>}
-      {error && <span className="text-xs text-sla-breach">{error}</span>}
+      {isPending && <p className="text-xs text-ink-950/40 dark:text-surface/40">Saving…</p>}
+      {error && <p className="text-xs text-sla-breach">{error}</p>}
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  pillClass,
+  pillLabel,
+  children,
+}: {
+  label: string;
+  pillClass?: string;
+  pillLabel?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <label className="flex items-center gap-2">
-      <span className="text-xs text-ink-950/50 dark:text-surface/50">{label}</span>
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-medium text-ink-950/60 dark:text-surface/60">{label}</span>
+        {pillClass && pillLabel && <span className={pillClass}>{pillLabel}</span>}
+      </div>
       {children}
-    </label>
+    </div>
   );
 }

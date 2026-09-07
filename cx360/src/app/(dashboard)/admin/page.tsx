@@ -2,6 +2,21 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
+import { ArrowRight } from "lucide-react";
+
+const ROLE_PILL: Record<string, string> = {
+  ADMIN: "pill-brand",
+  SUPERVISOR: "pill-warning",
+  AGENT: "pill-neutral",
+  READ_ONLY: "pill-neutral",
+};
+
+const PRIORITY_PILL: Record<string, string> = {
+  CRITICAL: "pill-breach",
+  HIGH: "pill-warning",
+  MEDIUM: "pill-neutral",
+  LOW: "pill-neutral",
+};
 
 export default async function AdminPage() {
   const ctx = await requireSession();
@@ -16,11 +31,8 @@ export default async function AdminPage() {
     <div className="h-full overflow-y-auto p-6 max-w-3xl">
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-lg font-semibold">Admin centre</h1>
-        <Link
-          href="/admin/integrations"
-          className="text-xs px-3 py-1.5 rounded bg-brand text-white font-medium hover:bg-brand-dark"
-        >
-          Integration hub →
+        <Link href="/admin/integrations" className="btn-primary text-xs">
+          Integration hub <ArrowRight size={14} />
         </Link>
       </div>
       <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-6">
@@ -32,8 +44,8 @@ export default async function AdminPage() {
         <h2 className="text-sm font-semibold mb-2">SLA policies</h2>
         <div className="card divide-y divide-line-light dark:divide-line-dark">
           {policies.map((p) => (
-            <div key={p.id} className="p-3 flex items-center justify-between text-sm">
-              <span className="font-medium">{p.priority}</span>
+            <div key={p.id} className="p-4 flex items-center justify-between text-sm">
+              <span className={PRIORITY_PILL[p.priority] ?? "pill-neutral"}>{p.priority}</span>
               <span className="text-ink-950/60 dark:text-surface/60 font-mono text-xs">
                 {p.responseMinutes}m response / {p.resolutionMinutes}m resolution · warn @{p.warningThresholdPct}% · escalate @{p.escalationThresholdPct}%
               </span>
@@ -46,12 +58,13 @@ export default async function AdminPage() {
         <h2 className="text-sm font-semibold mb-2">Users &amp; roles</h2>
         <div className="card divide-y divide-line-light dark:divide-line-dark">
           {members.map((m) => (
-            <div key={m.id} className="p-3 flex items-center justify-between text-sm">
-              <div>
-                <div className="font-medium">{m.user.name}</div>
-                <div className="text-xs text-ink-950/50 dark:text-surface/50">{m.user.email}</div>
+            <div key={m.id} className="p-4 flex items-center gap-3 text-sm">
+              <span className="avatar w-9 h-9 text-xs">{m.user.name[0]}</span>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium truncate">{m.user.name}</div>
+                <div className="text-xs text-ink-950/50 dark:text-surface/50 truncate">{m.user.email}</div>
               </div>
-              <span className="pill-neutral">{m.role}</span>
+              <span className={ROLE_PILL[m.role] ?? "pill-neutral"}>{m.role}</span>
             </div>
           ))}
         </div>
