@@ -24,7 +24,7 @@ export function SlaBadge({
 
   if (clock.stage === "met") {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-sla-ok bg-sla-ok/10 px-2 py-0.5 rounded">
+      <span className="pill-ok">
         <CheckCircle2 size={12} /> Met SLA
       </span>
     );
@@ -35,11 +35,7 @@ export function SlaBadge({
 
   return (
     <span
-      className={clsx(
-        "inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded font-mono",
-        s.bg,
-        s.text
-      )}
+      className={clsx("pill font-mono", s.bg, s.text)}
       title={`${SLA_STATUS_LABEL[clock.status]} · ${clock.stage} target ${clock.targetMinutes}m`}
     >
       <Icon size={12} />

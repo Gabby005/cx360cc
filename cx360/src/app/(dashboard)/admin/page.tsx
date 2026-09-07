@@ -51,7 +51,7 @@ export default async function AdminPage() {
                 <div className="font-medium">{m.user.name}</div>
                 <div className="text-xs text-ink-950/50 dark:text-surface/50">{m.user.email}</div>
               </div>
-              <span className="text-xs px-1.5 py-0.5 rounded bg-line-light dark:bg-ink-800">{m.role}</span>
+              <span className="pill-neutral">{m.role}</span>
             </div>
           ))}
         </div>

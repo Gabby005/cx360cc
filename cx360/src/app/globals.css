@@ -36,9 +36,60 @@
 
 @layer components {
   .card {
-    @apply bg-surface-raised dark:bg-ink-900 border border-line-light dark:border-line-dark rounded-lg;
+    @apply bg-surface-raised dark:bg-ink-900 border border-line-light dark:border-line-dark rounded-lg shadow-card;
   }
   .kbd {
     @apply font-mono text-[11px] px-1.5 py-0.5 rounded border border-line-light dark:border-line-dark bg-surface dark:bg-ink-800;
+  }
+
+  /* Pill badges — the small rounded status/priority/segment tags used
+     throughout (tickets, cases, customers, workflows, admin). Solid-tint
+     background + matching text color, never color alone (paired with a
+     short label so it's legible without relying on hue). */
+  .pill {
+    @apply inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full;
+  }
+  .pill-neutral {
+    @apply pill bg-ink-950/5 text-ink-950/70 dark:bg-surface/10 dark:text-surface/70;
+  }
+  .pill-brand {
+    @apply pill bg-brand-light text-brand-dark dark:bg-brand/15 dark:text-brand;
+  }
+  .pill-ok {
+    @apply pill bg-sla-ok/10 text-sla-ok;
+  }
+  .pill-warning {
+    @apply pill bg-sla-warning/10 text-sla-warning;
+  }
+  .pill-breach {
+    @apply pill bg-sla-breach/10 text-sla-breach;
+  }
+
+  /* Buttons — rounded-lg (not full) reads as "app button" vs. pill tags;
+     keeps the two patterns visually distinct the way Intercom/Zoho do. */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 text-sm font-medium rounded-lg px-3.5 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-brand-dark;
+  }
+  .btn-secondary {
+    @apply btn bg-surface-raised dark:bg-ink-800 border border-line-light dark:border-line-dark hover:bg-surface dark:hover:bg-ink-700;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent hover:bg-ink-950/5 dark:hover:bg-surface/10;
+  }
+  .btn-danger-ghost {
+    @apply btn bg-transparent text-sla-breach hover:bg-sla-breach/10;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 rounded-lg border border-line-light dark:border-line-dark bg-surface-raised dark:bg-ink-900 text-sm placeholder:text-ink-950/35 dark:placeholder:text-surface/35;
+  }
+
+  /* Avatar — initials circle, used for agents/customers wherever a
+     photo isn't available (which is everywhere in this build). */
+  .avatar {
+    @apply inline-flex items-center justify-center rounded-full bg-brand-light text-brand-dark dark:bg-brand/20 dark:text-brand font-medium shrink-0;
   }
 }

@@ -107,9 +107,7 @@ function RuleCard({ rule, canEdit }: { rule: Rule; canEdit: boolean }) {
             <button
               onClick={toggle}
               disabled={isPending}
-              className={`text-xs px-2 py-1 rounded font-medium ${
-                rule.enabled ? "bg-sla-ok/10 text-sla-ok" : "bg-line-light dark:bg-ink-800 text-ink-950/60 dark:text-surface/60"
-              }`}
+              className={rule.enabled ? "pill-ok" : "pill-neutral"}
             >
               {rule.enabled ? "Enabled" : "Disabled"}
             </button>

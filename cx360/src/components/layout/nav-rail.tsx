@@ -16,7 +16,7 @@ import clsx from "clsx";
 
 const ITEMS = [
   { href: "/dashboard", icon: LayoutGrid, label: "Overview" },
-  { href: "/inbox", icon: Inbox, label: "Omnichannel inbox" },
+  { href: "/inbox", icon: Inbox, label: "Inbox" },
   { href: "/agent-workspace", icon: Headset, label: "Agent workspace" },
   { href: "/cases", icon: Inbox, label: "Cases" },
   { href: "/customers", icon: Users, label: "Customers" },
@@ -31,46 +31,56 @@ export function NavRail({ role }: { role: string }) {
   return (
     <nav
       aria-label="Primary"
-      className="w-16 shrink-0 bg-ink-950 flex flex-col items-center py-4 gap-1"
+      className="w-60 shrink-0 bg-surface-raised dark:bg-ink-900 border-r border-line-light dark:border-line-dark flex flex-col py-4"
     >
-      <div
-        aria-hidden
-        className="w-8 h-8 rounded bg-brand text-white grid place-items-center font-mono text-xs font-semibold mb-4"
-      >
-        CX
+      <div className="flex items-center gap-2 px-4 mb-6">
+        <div
+          aria-hidden
+          className="w-8 h-8 rounded-lg bg-brand text-white grid place-items-center font-semibold text-sm shrink-0"
+        >
+          CX
+        </div>
+        <span className="font-semibold text-sm">CX360</span>
       </div>
 
-      {ITEMS.map(({ href, icon: Icon, label }) => {
-        const active = pathname?.startsWith(href);
-        return (
-          <Link
-            key={href}
-            href={href}
-            aria-current={active ? "page" : undefined}
-            title={label}
-            className={clsx(
-              "w-11 h-11 rounded-lg grid place-items-center transition-colors group relative",
-              active ? "bg-brand text-white" : "text-surface/50 hover:bg-ink-800 hover:text-surface"
-            )}
-          >
-            <Icon size={18} strokeWidth={2} />
-            <span className="sr-only">{label}</span>
-          </Link>
-        );
-      })}
+      <div className="flex-1 px-2 space-y-0.5">
+        {ITEMS.map(({ href, icon: Icon, label }) => {
+          const active = pathname?.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={clsx(
+                "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                active
+                  ? "bg-brand-light text-brand-dark dark:bg-brand/15 dark:text-brand"
+                  : "text-ink-950/60 dark:text-surface/60 hover:bg-ink-950/5 dark:hover:bg-surface/5 hover:text-ink-950 dark:hover:text-surface"
+              )}
+            >
+              <Icon size={17} strokeWidth={2} className="shrink-0" />
+              <span className="truncate">{label}</span>
+            </Link>
+          );
+        })}
+      </div>
 
-      <div className="mt-auto">
-        {role === "ADMIN" && (
+      {role === "ADMIN" && (
+        <div className="px-2 pt-2 mt-2 border-t border-line-light dark:border-line-dark">
           <Link
             href="/admin"
-            title="Admin centre"
-            className="w-11 h-11 rounded-lg grid place-items-center text-surface/50 hover:bg-ink-800 hover:text-surface transition-colors"
+            className={clsx(
+              "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+              pathname?.startsWith("/admin")
+                ? "bg-brand-light text-brand-dark dark:bg-brand/15 dark:text-brand"
+                : "text-ink-950/60 dark:text-surface/60 hover:bg-ink-950/5 dark:hover:bg-surface/5 hover:text-ink-950 dark:hover:text-surface"
+            )}
           >
-            <Settings size={18} />
-            <span className="sr-only">Admin centre</span>
+            <Settings size={17} strokeWidth={2} className="shrink-0" />
+            <span>Admin centre</span>
           </Link>
-        )}
-      </div>
+        </div>
+      )}
     </nav>
   );
 }

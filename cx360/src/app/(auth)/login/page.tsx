@@ -25,33 +25,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
-      {/* Brand panel */}
-      <div className="hidden lg:flex flex-col justify-between bg-ink-950 text-surface p-12">
-        <div className="font-mono text-sm tracking-wide text-brand-light/70">CX360</div>
-        <div className="max-w-md">
-          <p className="text-3xl leading-snug font-medium">
-            One customer. One view. Every interaction.
-          </p>
-          <p className="mt-4 text-surface/60 text-sm leading-relaxed">
-            Every case, every channel and every SLA clock your team is
-            carrying right now, in one workspace.
-          </p>
+    <div className="min-h-screen flex items-center justify-center bg-surface p-4">
+      <div className="w-full max-w-sm">
+        <div className="flex items-center justify-center gap-2 mb-8">
+          <div className="w-9 h-9 rounded-lg bg-brand text-white grid place-items-center font-semibold text-sm">
+            CX
+          </div>
+          <span className="font-semibold text-lg">CX360</span>
         </div>
-        <div className="text-xs text-surface/40 font-mono">
-          Contact Centre CRM · Multi-tenant · SOC2-ready architecture
-        </div>
-      </div>
 
-      {/* Form panel */}
-      <div className="flex items-center justify-center p-8">
-        <form onSubmit={handleSubmit} className="w-full max-w-sm">
-          <h1 className="text-xl font-semibold mb-1">Sign in</h1>
-          <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-6">
-            Use your agent or admin credentials.
-          </p>
+        <form onSubmit={handleSubmit} className="card p-7">
+          <h1 className="text-lg font-semibold mb-1">Sign in</h1>
+          <p className="text-sm text-ink-950/60 mb-6">Use your agent or admin credentials.</p>
 
-          <label className="block text-sm font-medium mb-1" htmlFor="email">
+          <label className="block text-sm font-medium mb-1.5" htmlFor="email">
             Work email
           </label>
           <input
@@ -61,11 +48,11 @@ export default function LoginPage() {
             autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full mb-4 px-3 py-2 rounded border border-line-light dark:border-line-dark bg-surface-raised dark:bg-ink-900 text-sm"
+            className="input mb-4"
             placeholder="you@bank.com"
           />
 
-          <label className="block text-sm font-medium mb-1" htmlFor="password">
+          <label className="block text-sm font-medium mb-1.5" htmlFor="password">
             Password
           </label>
           <input
@@ -74,29 +61,26 @@ export default function LoginPage() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full mb-2 px-3 py-2 rounded border border-line-light dark:border-line-dark bg-surface-raised dark:bg-ink-900 text-sm"
+            className="input mb-2"
             placeholder="••••••••"
           />
 
           {error && (
-            <p role="alert" className="text-sm text-sla-breach mb-3">
+            <p role="alert" className="text-sm text-sla-breach mb-3 mt-2">
               {error}
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-3 py-2 rounded bg-brand text-white text-sm font-medium hover:bg-brand-dark transition-colors disabled:opacity-60"
-          >
+          <button type="submit" disabled={loading} className="btn-primary w-full mt-4">
             {loading ? "Signing in…" : "Sign in"}
           </button>
-
-          <p className="mt-6 text-xs text-ink-950/50 dark:text-surface/50">
-            Demo credentials: agent@demobank.cx360 / supervisor@demobank.cx360
-            — password <code className="kbd">demo1234</code> (see seed script).
-          </p>
         </form>
+
+        <p className="mt-6 text-center text-xs text-ink-950/45">
+          Demo: <code className="kbd">agent@demobank.cx360</code> /{" "}
+          <code className="kbd">supervisor@demobank.cx360</code> — password{" "}
+          <code className="kbd">demo1234</code>
+        </p>
       </div>
     </div>
   );

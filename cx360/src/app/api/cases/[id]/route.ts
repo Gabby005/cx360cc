@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
 
@@ -65,7 +66,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const updated = await prisma.$transaction(async (tx) => {
       const u = await tx.case.update({ where: { id: existing.id }, data });
       for (const e of events) {
-        await tx.event.create({ data: { tenantId: ctx.tenantId, type: e.type, payload: e.payload } });
+        await tx.event.create({
+          data: { tenantId: ctx.tenantId, type: e.type, payload: e.payload as Prisma.InputJsonValue },
+        });
       }
       return u;
     });

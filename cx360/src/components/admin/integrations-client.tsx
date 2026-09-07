@@ -148,9 +148,7 @@ function ApiKeysPanel({ initialKeys }: { initialKeys: ApiKeyItem[] }) {
               </div>
             </div>
             {k.revokedAt ? (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-line-light dark:bg-ink-800 text-ink-950/50 dark:text-surface/50">
-                Revoked
-              </span>
+              <span className="pill-neutral">Revoked</span>
             ) : (
               <button onClick={() => revoke(k.id)} className="text-xs text-sla-breach hover:underline">
                 Revoke
@@ -267,9 +265,7 @@ function WebhooksPanel({ initialWebhooks }: { initialWebhooks: WebhookItem[] }) 
               <span className="font-mono text-xs truncate max-w-[280px]">{w.url}</span>
               <button
                 onClick={() => toggle(w.id, w.active)}
-                className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
-                  w.active ? "bg-sla-ok/10 text-sla-ok" : "bg-line-light dark:bg-ink-800 text-ink-950/50 dark:text-surface/50"
-                }`}
+                className={w.active ? "pill-ok shrink-0" : "pill-neutral shrink-0"}
               >
                 {w.active ? "Active" : "Paused"}
               </button>
@@ -307,9 +303,7 @@ function ConnectorMarketplace() {
               <div className="font-medium">{c.name}</div>
               <div className="text-xs text-ink-950/50 dark:text-surface/50">{c.category}</div>
             </div>
-            <span className="text-[11px] px-1.5 py-0.5 rounded bg-line-light dark:bg-ink-800 text-ink-950/50 dark:text-surface/50">
-              Phase 2
-            </span>
+            <span className="pill-neutral">Phase 2</span>
           </div>
         ))}
       </div>

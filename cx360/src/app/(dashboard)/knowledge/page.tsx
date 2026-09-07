@@ -19,7 +19,7 @@ export default async function KnowledgePage() {
           <li key={a.id} className="p-4">
             <div className="flex items-center justify-between">
               <span className="font-medium text-sm">{a.title}</span>
-              <span className="text-xs px-1.5 py-0.5 rounded bg-line-light dark:bg-ink-800">{a.status}</span>
+              <span className="pill-neutral">{a.status}</span>
             </div>
             <p className="text-xs text-ink-950/50 dark:text-surface/50 mt-1">{a.category ?? "Uncategorized"} · v{a.version}</p>
           </li>

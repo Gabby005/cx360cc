@@ -109,11 +109,7 @@ export function InboxClient({ initialItems, customers }: { initialItems: Item[];
                       <Icon size={12} className="text-ink-950/40 dark:text-surface/40 shrink-0" />
                       {item.customer.firstName} {item.customer.lastName}
                     </span>
-                    <span
-                      className={`text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${
-                        item.status === "NEW" ? "bg-sla-warning/10 text-sla-warning" : "bg-line-light dark:bg-ink-800 text-ink-950/50 dark:text-surface/50"
-                      }`}
-                    >
+                    <span className={item.status === "NEW" ? "pill-warning shrink-0" : "pill-neutral shrink-0"}>
                       {item.status.replace("_", " ")}
                     </span>
                   </div>

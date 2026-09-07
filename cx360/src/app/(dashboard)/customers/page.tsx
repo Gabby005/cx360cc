@@ -40,9 +40,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: { 
                 {c.firstName} {c.lastName}
               </span>
               {c.segment && (
-                <span className="text-[11px] px-1.5 py-0.5 rounded bg-brand-light text-brand-dark font-medium">
-                  {c.segment}
-                </span>
+                <span className="pill-brand">{c.segment}</span>
               )}
             </div>
             <p className="text-xs text-ink-950/50 dark:text-surface/50">{c.email ?? c.phone ?? "No contact on file"}</p>
