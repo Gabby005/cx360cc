@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { SlaBadge } from "@/components/cases/sla-badge";
 import { CaseActions } from "@/components/cases/case-actions";
+import { QaReviewPanel } from "@/components/cases/qa-review-panel";
 import { formatDistanceToNow } from "date-fns";
 import { Phone, Mail, MessageSquare } from "lucide-react";
 
@@ -36,6 +37,15 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
     where: { memberships: { some: { tenantId: ctx.tenantId } } },
     select: { id: true, name: true },
   });
+
+  const canReviewQa = ctx.role === "SUPERVISOR" || ctx.role === "ADMIN";
+  const qaReviews = canReviewQa
+    ? await prisma.qaReview.findMany({
+        where: { caseId: c.id },
+        orderBy: { createdAt: "desc" },
+        include: { reviewer: { select: { name: true } }, reviewedAgent: { select: { name: true } } },
+      })
+    : [];
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -122,7 +132,24 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
             {c.customer.segment && <span className="pill-brand mt-3">{c.customer.segment}</span>}
           </div>
 
-          <CaseActions caseId={c.id} status={c.status} priority={c.priority} assignedToId={c.assignedToId} agents={agents} />
+          <CaseActions
+            caseId={c.id}
+            status={c.status}
+            priority={c.priority}
+            assignedToId={c.assignedToId}
+            agents={agents}
+            currentUserId={ctx.userId}
+            canReassignOthers={canReviewQa}
+          />
+
+          {canReviewQa && (
+            <QaReviewPanel
+              caseId={c.id}
+              assignedAgent={c.assignedTo}
+              agents={agents}
+              initialReviews={JSON.parse(JSON.stringify(qaReviews))}
+            />
+          )}
         </div>
       </div>
     </div>

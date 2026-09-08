@@ -11,6 +11,7 @@ import {
   BarChart3,
   Settings,
   Workflow,
+  UsersRound,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -63,6 +64,22 @@ export function NavRail({ role }: { role: string }) {
             </Link>
           );
         })}
+
+        {(role === "SUPERVISOR" || role === "ADMIN") && (
+          <Link
+            href="/team"
+            aria-current={pathname?.startsWith("/team") ? "page" : undefined}
+            className={clsx(
+              "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+              pathname?.startsWith("/team")
+                ? "bg-brand-light text-brand-dark dark:bg-brand/15 dark:text-brand"
+                : "text-ink-950/60 dark:text-surface/60 hover:bg-ink-950/5 dark:hover:bg-surface/5 hover:text-ink-950 dark:hover:text-surface"
+            )}
+          >
+            <UsersRound size={17} strokeWidth={2} className="shrink-0" />
+            <span className="truncate">Team</span>
+          </Link>
+        )}
       </div>
 
       {role === "ADMIN" && (

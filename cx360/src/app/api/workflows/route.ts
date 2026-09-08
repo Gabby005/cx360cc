@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 
@@ -58,8 +59,8 @@ export async function POST(req: NextRequest) {
         tenantId: ctx.tenantId,
         name: body.name,
         triggerType: body.triggerType,
-        conditions: body.conditions,
-        actions: body.actions,
+        conditions: body.conditions as unknown as Prisma.InputJsonValue,
+        actions: body.actions as unknown as Prisma.InputJsonValue,
         enabled: body.enabled,
       },
     });

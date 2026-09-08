@@ -25,18 +25,23 @@ export function CaseActions({
   priority,
   assignedToId,
   agents,
+  currentUserId,
+  canReassignOthers,
 }: {
   caseId: string;
   status: string;
   priority: string;
   assignedToId: string | null;
   agents: { id: string; name: string }[];
+  currentUserId: string;
+  canReassignOthers: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [localStatus, setLocalStatus] = useState(status);
   const [localPriority, setLocalPriority] = useState(priority);
+  const [localAssignedToId, setLocalAssignedToId] = useState(assignedToId);
 
   async function patch(body: Record<string, unknown>) {
     setError(null);
@@ -52,6 +57,8 @@ export function CaseActions({
     }
     startTransition(() => router.refresh());
   }
+
+  const assignedAgent = agents.find((a) => a.id === localAssignedToId);
 
   return (
     <div className="card p-4 space-y-4">
@@ -94,18 +101,56 @@ export function CaseActions({
       </Field>
 
       <Field label="Assigned to">
-        <select
-          defaultValue={assignedToId ?? ""}
-          onChange={(e) => patch({ assignedToId: e.target.value || null })}
-          className="input"
-        >
-          <option value="">Unassigned</option>
-          {agents.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
+        {canReassignOthers ? (
+          <select
+            value={localAssignedToId ?? ""}
+            onChange={(e) => {
+              setLocalAssignedToId(e.target.value || null);
+              patch({ assignedToId: e.target.value || null });
+            }}
+            className="input"
+          >
+            <option value="">Unassigned</option>
+            {agents.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        ) : localAssignedToId === currentUserId ? (
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Assigned to you</span>
+            <button
+              onClick={() => {
+                setLocalAssignedToId(null);
+                patch({ assignedToId: null });
+              }}
+              className="text-xs text-brand hover:underline"
+            >
+              Unassign
+            </button>
+          </div>
+        ) : localAssignedToId === null ? (
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-ink-950/50 dark:text-surface/50">Unassigned</span>
+            <button
+              onClick={() => {
+                setLocalAssignedToId(currentUserId);
+                patch({ assignedToId: currentUserId });
+              }}
+              className="text-xs text-brand hover:underline"
+            >
+              Assign to me
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm text-ink-950/60 dark:text-surface/60">
+            {assignedAgent?.name ?? "Another agent"}{" "}
+            <span className="text-xs text-ink-950/40 dark:text-surface/40">
+              — ask a supervisor to reassign
+            </span>
+          </p>
+        )}
       </Field>
 
       {isPending && <p className="text-xs text-ink-950/40 dark:text-surface/40">Saving…</p>}

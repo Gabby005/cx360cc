@@ -40,6 +40,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     });
     if (!existing) return NextResponse.json({ error: "Case not found" }, { status: 404 });
 
+    // Reassigning a case to a DIFFERENT agent is a Supervisor/Admin capability
+    // (the Team page's whole point). A plain Agent can still claim an
+    // unassigned case for themselves, or unassign themselves, but can't
+    // shuffle a case onto a teammate — that has to go through someone with
+    // team-wide visibility, so cases don't quietly move between agents
+    // without anyone noticing.
+    if (
+      body.assignedToId !== undefined &&
+      body.assignedToId !== null &&
+      body.assignedToId !== ctx.userId &&
+      ctx.role === "AGENT"
+    ) {
+      throw new ApiError(403, "Only supervisors or admins can assign a case to another agent");
+    }
+
     const now = new Date();
     const data: Record<string, unknown> = { ...body };
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiKey } from "@/lib/api-auth";
 import { ApiError } from "@/lib/tenant";
@@ -49,7 +50,9 @@ export async function POST(req: NextRequest) {
     const body = createSchema.parse(await req.json());
 
     const customer = await prisma.$transaction(async (tx) => {
-      const created = await tx.customer.create({ data: { ...body, tenantId } });
+      const created = await tx.customer.create({
+        data: { ...body, tenantId, customFields: body.customFields as unknown as Prisma.InputJsonValue },
+      });
       await tx.event.create({
         data: { tenantId, type: "customer.created", payload: { customerId: created.id, source: "api" } },
       });
