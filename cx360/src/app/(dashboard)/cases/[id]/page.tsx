@@ -39,13 +39,17 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   });
 
   const canReviewQa = ctx.role === "SUPERVISOR" || ctx.role === "ADMIN";
-  const qaReviews = canReviewQa
-    ? await prisma.qaReview.findMany({
-        where: { caseId: c.id },
-        orderBy: { createdAt: "desc" },
-        include: { reviewer: { select: { name: true } }, reviewedAgent: { select: { name: true } } },
-      })
-    : [];
+  const qaReviews = await prisma.qaReview.findMany({
+    where: {
+      caseId: c.id,
+      // Agents only ever see reviews written about their own work, and
+      // only read-only — never other agents' reviews, and never the
+      // ability to create one. Supervisors/Admins see everything on the case.
+      ...(canReviewQa ? {} : { reviewedAgentId: ctx.userId }),
+    },
+    orderBy: { createdAt: "desc" },
+    include: { reviewer: { select: { name: true } }, reviewedAgent: { select: { name: true } } },
+  });
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -142,12 +146,13 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
             canReassignOthers={canReviewQa}
           />
 
-          {canReviewQa && (
+          {(canReviewQa || qaReviews.length > 0) && (
             <QaReviewPanel
               caseId={c.id}
               assignedAgent={c.assignedTo}
               agents={agents}
               initialReviews={JSON.parse(JSON.stringify(qaReviews))}
+              canCreate={canReviewQa}
             />
           )}
         </div>

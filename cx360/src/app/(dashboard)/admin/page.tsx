@@ -4,13 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { ArrowRight } from "lucide-react";
 
-const ROLE_PILL: Record<string, string> = {
-  ADMIN: "pill-brand",
-  SUPERVISOR: "pill-warning",
-  AGENT: "pill-neutral",
-  READ_ONLY: "pill-neutral",
-};
-
 const PRIORITY_PILL: Record<string, string> = {
   CRITICAL: "pill-breach",
   HIGH: "pill-warning",
@@ -22,9 +15,9 @@ export default async function AdminPage() {
   const ctx = await requireSession();
   if (ctx.role !== "ADMIN") redirect("/dashboard");
 
-  const [policies, members] = await Promise.all([
+  const [policies, memberCount] = await Promise.all([
     prisma.slaPolicy.findMany({ where: { tenantId: ctx.tenantId }, orderBy: { priority: "desc" } }),
-    prisma.membership.findMany({ where: { tenantId: ctx.tenantId }, include: { user: true } }),
+    prisma.membership.count({ where: { tenantId: ctx.tenantId } }),
   ]);
 
   return (
@@ -36,8 +29,8 @@ export default async function AdminPage() {
         </Link>
       </div>
       <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-6">
-        SLA policy and user/role config shown below are live. Notification templates and full audit log viewer are
-        Phase 2 — API keys and webhooks live in the Integration Hub.
+        SLA policy shown below is live. Notification templates and full audit log viewer are Phase 2 — API keys and
+        webhooks live in the Integration Hub.
       </p>
 
       <section className="mb-6">
@@ -55,18 +48,15 @@ export default async function AdminPage() {
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold mb-2">Users &amp; roles</h2>
-        <div className="card divide-y divide-line-light dark:divide-line-dark">
-          {members.map((m) => (
-            <div key={m.id} className="p-4 flex items-center gap-3 text-sm">
-              <span className="avatar w-9 h-9 text-xs">{m.user.name[0]}</span>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{m.user.name}</div>
-                <div className="text-xs text-ink-950/50 dark:text-surface/50 truncate">{m.user.email}</div>
-              </div>
-              <span className={ROLE_PILL[m.role] ?? "pill-neutral"}>{m.role}</span>
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold">Users &amp; roles</h2>
+          <Link href="/admin/users" className="text-xs text-brand hover:underline">
+            Manage users →
+          </Link>
+        </div>
+        <div className="card p-4 text-sm text-ink-950/60 dark:text-surface/60">
+          {memberCount} {memberCount === 1 ? "person" : "people"} on this team. Create agents/supervisors, and
+          promote or demote roles, from the Manage users page.
         </div>
       </section>
     </div>

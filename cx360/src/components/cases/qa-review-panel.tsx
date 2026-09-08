@@ -20,11 +20,13 @@ export function QaReviewPanel({
   assignedAgent,
   agents,
   initialReviews,
+  canCreate,
 }: {
   caseId: string;
   assignedAgent: { id: string; name: string } | null;
   agents: { id: string; name: string }[];
   initialReviews: Review[];
+  canCreate: boolean;
 }) {
   const router = useRouter();
   const [reviews, setReviews] = useState(initialReviews);
@@ -77,14 +79,16 @@ export function QaReviewPanel({
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-xs font-semibold text-ink-950/50 dark:text-surface/50 tracking-wide">
-          QA &amp; coaching
+          {canCreate ? "QA & coaching" : "Your QA feedback"}
         </h2>
-        <button onClick={() => setShowForm((v) => !v)} className="text-xs text-brand hover:underline">
-          {showForm ? "Cancel" : "+ Add review"}
-        </button>
+        {canCreate && (
+          <button onClick={() => setShowForm((v) => !v)} className="text-xs text-brand hover:underline">
+            {showForm ? "Cancel" : "+ Add review"}
+          </button>
+        )}
       </div>
 
-      {showForm && (
+      {canCreate && showForm && (
         <form onSubmit={submit} className="space-y-3 mb-4 pb-4 border-b border-line-light dark:border-line-dark">
           <div>
             <label className="block text-xs font-medium mb-1">Agent being reviewed</label>

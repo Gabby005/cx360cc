@@ -12,6 +12,7 @@ import {
   Settings,
   Workflow,
   UsersRound,
+  Award,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -21,6 +22,7 @@ const ITEMS = [
   { href: "/agent-workspace", icon: Headset, label: "Agent workspace" },
   { href: "/cases", icon: Inbox, label: "Cases" },
   { href: "/customers", icon: Users, label: "Customers" },
+  { href: "/performance", icon: Award, label: "My performance" },
   { href: "/knowledge", icon: BookOpen, label: "Knowledge base" },
   { href: "/workflows", icon: Workflow, label: "Workflows" },
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
