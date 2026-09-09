@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { SlaBadge } from "@/components/cases/sla-badge";
+import { BatchCloseButton } from "@/components/cases/batch-close-button";
 
 const STATUS_LABEL: Record<string, string> = {
   NEW: "New",
@@ -39,20 +40,23 @@ export default async function CasesPage({ searchParams }: { searchParams: { stat
           <h1 className="text-lg font-semibold">Cases</h1>
           <p className="text-sm text-ink-950/60 dark:text-surface/60">{cases.length} in view</p>
         </div>
-        <div className="flex gap-1.5">
-          {filters.map((f) => (
-            <Link
-              key={f}
-              href={f === "all" ? "/cases" : `/cases?status=${f}`}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                (f === "all" && !status) || status === f
-                  ? "bg-brand text-white"
-                  : "bg-surface dark:bg-ink-800 text-ink-950/70 dark:text-surface/70 hover:bg-line-light dark:hover:bg-ink-700"
-              }`}
-            >
-              {f === "all" ? "All open" : STATUS_LABEL[f]}
-            </Link>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            {filters.map((f) => (
+              <Link
+                key={f}
+                href={f === "all" ? "/cases" : `/cases?status=${f}`}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  (f === "all" && !status) || status === f
+                    ? "bg-brand text-white"
+                    : "bg-surface dark:bg-ink-800 text-ink-950/70 dark:text-surface/70 hover:bg-line-light dark:hover:bg-ink-700"
+                }`}
+              >
+                {f === "all" ? "All open" : STATUS_LABEL[f]}
+              </Link>
+            ))}
+          </div>
+          {(ctx.role === "SUPERVISOR" || ctx.role === "ADMIN") && <BatchCloseButton />}
         </div>
       </div>
 
@@ -76,9 +80,10 @@ export default async function CasesPage({ searchParams }: { searchParams: { stat
                   className="border-b border-line-light dark:border-line-dark last:border-0 hover:bg-surface dark:hover:bg-ink-800/60 transition-colors"
                 >
                   <td className="px-5 py-3.5">
-                    <Link href={`/cases/${c.id}`} className="font-medium hover:text-brand">
+                    <Link href={`/cases/${c.id}`} className="font-medium hover:text-brand block">
                       {c.subject}
                     </Link>
+                    <span className="font-mono text-[10px] text-ink-950/40 dark:text-surface/40">{c.caseNumber}</span>
                   </td>
                   <td className="px-3 py-3.5">
                     <div className="flex items-center gap-2">

@@ -212,6 +212,35 @@ credentials to wire up, which this delivery doesn't have. The API-key and
 webhook infrastructure above is exactly what a real connector would plug
 into once credentials exist.
 
-## 7. Getting it running
+## 7. Case codes and case numbering
+
+Case numbers follow `{TenantPrefix}/{TypeCode}/{CaseCode}/{Sequence}`, e.g.
+`PTB/COM/E0006/000123`:
+
+- **TenantPrefix** — set in Admin centre (default `CX`), e.g. `PTB` for
+  PremiumTrust Bank. Editable at any time; changing it only affects
+  cases created afterward, existing numbers never change.
+- **TypeCode** — fixed per `CaseType`: Complaint→`COM`, Request
+  (`SERVICE_REQUEST`)→`REQ`, Enquiry (`INQUIRY`)→`ENQ`, Incident→`INC`.
+  Not admin-configurable by design (these map 1:1 to the enum).
+- **CaseCode** — the admin-managed category/subcategory taxonomy
+  (`CaseCode` model). Admin uploads a CSV per type (columns:
+  `code,category,subcategory`) or adds entries one at a time in
+  Admin → Case codes. Agents pick Category → Subcategory when logging a
+  case (in the Inbox's "Convert to case" form, and any future case-creation
+  form built the same way), which resolves to one `CaseCode` row. Falls
+  back to `GEN` if no code is selected, so the number format stays
+  consistent either way.
+- **Sequence** — a per-tenant atomic counter (`Tenant.caseSequence`),
+  zero-padded to 6 digits. Not reset per type/code/year — one running
+  count per tenant, so numbers are always increasing and never collide
+  even under concurrent case creation.
+
+All of this lives in `src/lib/case-service.ts` (`createCase()`), the same
+shared service used by the Cases API, the Inbox's convert-to-case action,
+and the external `/api/v1/cases` endpoint — so every entry point produces
+identically-formatted numbers with zero duplicated logic.
+
+## 8. Getting it running
 
 See `README.md` for exact setup, database, and Netlify deployment steps.

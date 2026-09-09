@@ -16,14 +16,17 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  caseNumberPrefix  String   @default("CX")
+  caseSequence      Int      @default(0)
+  createdAt         DateTime @default(now())
 
   users        Membership[]
   customers    Customer[]
   cases        Case[]
+  caseCodes    CaseCode[]
   slaPolicies  SlaPolicy[]
   queues       Queue[]
   teams        Team[]
@@ -202,16 +205,43 @@ model Queue {
   cases  Case[]
 }
 
+/**
+ * The approved category/subcategory taxonomy per interaction type — e.g.
+ * type=COMPLAINT, code="E0006", category="ATM/POS", subcategory="Dispensed
+ * less cash". Admin manages this (bulk CSV upload or one-at-a-time
+ * creation); agents pick Category → Subcategory when logging a case,
+ * which resolves to one of these rows. The `code` becomes a segment of
+ * the case number (see src/lib/case-service.ts).
+ */
+model CaseCode {
+  id          String   @id @default(cuid())
+  tenantId    String
+  type        CaseType
+  code        String
+  category    String
+  subcategory String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  cases  Case[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type])
+}
+
 model Case {
   id           String     @id @default(cuid())
   tenantId     String
+  caseNumber   String     // e.g. "PTB/COM/E0006/000123" — see src/lib/case-service.ts for format
   customerId   String
   type         CaseType   @default(SERVICE_REQUEST)
   priority     Priority   @default(MEDIUM)
   status       CaseStatus @default(NEW)
   subject      String
   description  String?
-  category     String?
+  category     String?   // legacy freeform tag — kept for cases created before the CaseCode taxonomy existed
+  caseCodeId   String?   // structured category/subcategory code (approved by Admin), drives the caseNumber
   queueId      String?
   assignedToId String?
   slaPolicyId  String?
@@ -228,11 +258,13 @@ model Case {
   assignedTo  User?         @relation("AssignedAgent", fields: [assignedToId], references: [id])
   queue       Queue?        @relation(fields: [queueId], references: [id])
   slaPolicy   SlaPolicy?    @relation(fields: [slaPolicyId], references: [id])
+  caseCode    CaseCode?     @relation(fields: [caseCodeId], references: [id])
   interactions Interaction[]
   notes       CaseNote[]
   qaReviews   QaReview[]
   feedback    FeedbackResponse[]
 
+  @@unique([tenantId, caseNumber])
   @@index([tenantId, status])
   @@index([tenantId, assignedToId])
   @@index([tenantId, priority, status])

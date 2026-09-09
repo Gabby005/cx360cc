@@ -5,8 +5,9 @@ import { requireSession } from "@/lib/tenant";
 import { SlaBadge } from "@/components/cases/sla-badge";
 import { CaseActions } from "@/components/cases/case-actions";
 import { QaReviewPanel } from "@/components/cases/qa-review-panel";
+import { CaseTimeline } from "@/components/cases/case-timeline";
 import { formatDistanceToNow } from "date-fns";
-import { Phone, Mail, MessageSquare } from "lucide-react";
+import { Phone, Mail, MessageSquare, Printer } from "lucide-react";
 
 const CHANNEL_ICON: Record<string, typeof Phone> = {
   VOICE: Phone,
@@ -27,24 +28,63 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
       customer: true,
       assignedTo: { select: { id: true, name: true } },
       slaPolicy: true,
+      caseCode: true,
       interactions: { orderBy: { createdAt: "desc" } },
     },
   });
 
   if (!c) notFound();
 
-  const agents = await prisma.user.findMany({
-    where: { memberships: { some: { tenantId: ctx.tenantId } } },
-    select: { id: true, name: true },
-  });
+  const [agents, notes, activity] = await Promise.all([
+    prisma.user.findMany({
+      where: { memberships: { some: { tenantId: ctx.tenantId } } },
+      select: { id: true, name: true },
+    }),
+    prisma.caseNote.findMany({
+      where: { caseId: c.id },
+      orderBy: { createdAt: "desc" },
+      include: { author: { select: { name: true } } },
+    }),
+    prisma.auditLog.findMany({
+      where: { tenantId: ctx.tenantId, entity: "Case", entityId: c.id },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
+  // AuditLog.actorId has no FK relation (it's nullable — API-key-created
+  // records have no actor), so resolve names with a separate lookup rather
+  // than an `include`.
+  const actorIds = [...new Set(activity.map((a) => a.actorId).filter((id): id is string => !!id))];
+  const actors = actorIds.length
+    ? await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true } })
+    : [];
+  const actorNameById = new Map(actors.map((a) => [a.id, a.name]));
+
+  const timelineItems = [
+    ...notes.map((n) => ({
+      kind: "note" as const,
+      id: n.id,
+      createdAt: n.createdAt.toISOString(),
+      authorName: n.author.name,
+      body: n.body,
+      internal: n.internal,
+    })),
+    ...activity.map((a) => ({
+      kind: "activity" as const,
+      id: a.id,
+      createdAt: a.createdAt.toISOString(),
+      actorName: a.actorId ? actorNameById.get(a.actorId) ?? "Someone" : "System",
+      action: a.action,
+      before: a.before,
+      after: a.after,
+    })),
+  ].sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime());
+
+  const agentIdList = agents.map((a) => a.id);
   const canReviewQa = ctx.role === "SUPERVISOR" || ctx.role === "ADMIN";
   const qaReviews = await prisma.qaReview.findMany({
     where: {
       caseId: c.id,
-      // Agents only ever see reviews written about their own work, and
-      // only read-only — never other agents' reviews, and never the
-      // ability to create one. Supervisors/Admins see everything on the case.
       ...(canReviewQa ? {} : { reviewedAgentId: ctx.userId }),
     },
     orderBy: { createdAt: "desc" },
@@ -53,12 +93,25 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
 
   return (
     <div className="h-full overflow-y-auto p-6">
-      <Link href="/cases" className="text-xs text-ink-950/50 dark:text-surface/50 hover:text-brand">
-        ← All cases
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link href="/cases" className="text-xs text-ink-950/50 dark:text-surface/50 hover:text-brand">
+          ← All cases
+        </Link>
+        <a
+          href={`/cases/${c.id}/print`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-secondary text-xs"
+        >
+          <Printer size={13} /> Download PDF
+        </a>
+      </div>
 
       <div className="flex items-start justify-between mt-2 mb-6 gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-mono text-xs text-ink-950/40 dark:text-surface/40">{c.caseNumber}</span>
+          </div>
           <h1 className="text-xl font-semibold">{c.subject}</h1>
           <p className="text-sm text-ink-950/60 dark:text-surface/60 mt-1">
             <Link href={`/customers/${c.customerId}`} className="hover:text-brand">
@@ -67,6 +120,12 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
             {" · "}Opened {formatDistanceToNow(c.createdAt, { addSuffix: true })}
             {" · "}{c.type.replace("_", " ").toLowerCase()}
           </p>
+          {c.caseCode && (
+            <span className="pill-brand mt-2">
+              {c.caseCode.category}
+              {c.caseCode.subcategory ? ` · ${c.caseCode.subcategory}` : ""}
+            </span>
+          )}
         </div>
         {c.slaPolicy && (
           <SlaBadge createdAt={c.createdAt} respondedAt={c.respondedAt} resolvedAt={c.resolvedAt} policy={c.slaPolicy} />
@@ -112,6 +171,8 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
               </ul>
             )}
           </div>
+
+          <CaseTimeline caseId={c.id} items={timelineItems} />
         </div>
 
         <div className="w-full lg:w-72 shrink-0 space-y-4">

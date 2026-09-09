@@ -8,6 +8,7 @@ import type { SlaTarget } from "@/lib/sla";
 
 type CaseRow = {
   id: string;
+  caseNumber: string;
   subject: string;
   priority: string;
   status: string;
@@ -82,9 +83,10 @@ export function TeamQueueClient({ cases, agents }: { cases: CaseRow[]; agents: {
             {filtered.map((c) => (
               <tr key={c.id} className="border-b border-line-light dark:border-line-dark last:border-0 hover:bg-surface dark:hover:bg-ink-800/60 transition-colors">
                 <td className="px-5 py-3">
-                  <Link href={`/cases/${c.id}`} className="font-medium hover:text-brand">
+                  <Link href={`/cases/${c.id}`} className="font-medium hover:text-brand block">
                     {c.subject}
                   </Link>
+                  <span className="font-mono text-[10px] text-ink-950/40 dark:text-surface/40">{c.caseNumber}</span>
                 </td>
                 <td className="px-3 py-3 text-ink-950/70 dark:text-surface/70">
                   {c.customer.firstName} {c.customer.lastName}

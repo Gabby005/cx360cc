@@ -108,6 +108,30 @@ async function main() {
     });
   }
 
+  // Approved category/subcategory codes — the taxonomy Admin manages in
+  // /admin/case-codes. A handful per type so the demo isn't empty.
+  const caseCodeSeed = [
+    { type: "COMPLAINT" as const, code: "E0006", category: "ATM/POS", subcategory: "Dispensed less cash" },
+    { type: "COMPLAINT" as const, code: "E0012", category: "Card Disputes", subcategory: "Unauthorized transaction" },
+    { type: "COMPLAINT" as const, code: "E0021", category: "Branch Service", subcategory: "Excessive wait time" },
+    { type: "SERVICE_REQUEST" as const, code: "R0003", category: "Digital Banking", subcategory: "PIN reset" },
+    { type: "SERVICE_REQUEST" as const, code: "R0009", category: "Statements", subcategory: "Statement request" },
+    { type: "INQUIRY" as const, code: "Q0002", category: "Lending", subcategory: "Loan eligibility" },
+  ];
+  const caseCodeByKey = new Map<string, { id: string; code: string }>(); // "TYPE:category" -> case code, for wiring seeded cases below
+  for (const cc of caseCodeSeed) {
+    const existing = await prisma.caseCode.findFirst({ where: { tenantId: tenant.id, code: cc.code } });
+    const created = existing ?? (await prisma.caseCode.create({ data: { ...cc, tenantId: tenant.id } }));
+    caseCodeByKey.set(`${cc.type}:${cc.category}`, { id: created.id, code: created.code });
+  }
+
+  const TYPE_CODE: Record<string, string> = {
+    COMPLAINT: "COM",
+    SERVICE_REQUEST: "REQ",
+    INQUIRY: "ENQ",
+    INCIDENT: "INC",
+  };
+
   // Cases with SLA clocks at varying elapsed states (some past due, to
   // demonstrate the SLA badge in warning/breach states out of the box).
   const now = Date.now();
@@ -123,24 +147,39 @@ async function main() {
   for (const c of caseSeed) {
     const createdAt = new Date(now - c.ageMinutes * 60_000);
     const existing = await prisma.case.findFirst({ where: { tenantId: tenant.id, subject: c.subject, customerId: c.customer.id } });
-    const kase =
-      existing ??
-      (await prisma.case.create({
+
+    let kase = existing;
+    if (!kase) {
+      const caseCodeEntry = caseCodeByKey.get(`${c.type}:${c.category}`);
+      // Bump the tenant's case sequence and use it for this seeded case's
+      // number, so numbers generated later by the real createCase() service
+      // (used by the app itself) continue from here without colliding.
+      const updatedTenant = await prisma.tenant.update({
+        where: { id: tenant.id },
+        data: { caseSequence: { increment: 1 } },
+      });
+      const codeSegment = caseCodeEntry?.code ?? "GEN";
+      const caseNumber = `${updatedTenant.caseNumberPrefix}/${TYPE_CODE[c.type]}/${codeSegment}/${String(updatedTenant.caseSequence).padStart(6, "0")}`;
+
+      kase = await prisma.case.create({
         data: {
           tenantId: tenant.id,
+          caseNumber,
           customerId: c.customer.id,
           subject: c.subject,
           type: c.type,
           priority: c.priority,
           status: c.status,
           category: c.category,
+          caseCodeId: caseCodeEntry?.id,
           queueId: queue.id,
           slaPolicyId: policies[c.priority],
           assignedToId: [agent1.id, agent2.id][Math.floor(Math.random() * 2)],
           createdAt,
           updatedAt: createdAt,
         },
-      }));
+      });
+    }
 
     await prisma.interaction.create({
       data: {

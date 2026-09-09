@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
+import { logCaseActivity } from "@/lib/case-service";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -80,11 +81,47 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     const updated = await prisma.$transaction(async (tx) => {
       const u = await tx.case.update({ where: { id: existing.id }, data });
+
       for (const e of events) {
         await tx.event.create({
           data: { tenantId: ctx.tenantId, type: e.type, payload: e.payload as Prisma.InputJsonValue },
         });
       }
+
+      // One audit entry per field that actually changed — this is what
+      // powers the "who changed what, when" timeline on the case detail
+      // page, separate from customer-facing interactions and comments.
+      if (body.status && body.status !== existing.status) {
+        await logCaseActivity(tx, {
+          tenantId: ctx.tenantId,
+          caseId: existing.id,
+          actorId: ctx.userId,
+          action: "status_changed",
+          before: { status: existing.status },
+          after: { status: body.status },
+        });
+      }
+      if (body.priority && body.priority !== existing.priority) {
+        await logCaseActivity(tx, {
+          tenantId: ctx.tenantId,
+          caseId: existing.id,
+          actorId: ctx.userId,
+          action: "priority_changed",
+          before: { priority: existing.priority },
+          after: { priority: body.priority },
+        });
+      }
+      if (body.assignedToId !== undefined && body.assignedToId !== existing.assignedToId) {
+        await logCaseActivity(tx, {
+          tenantId: ctx.tenantId,
+          caseId: existing.id,
+          actorId: ctx.userId,
+          action: "reassigned",
+          before: { assignedToId: existing.assignedToId },
+          after: { assignedToId: body.assignedToId },
+        });
+      }
+
       return u;
     });
 

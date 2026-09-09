@@ -39,6 +39,7 @@ const createSchema = z.object({
   subject: z.string().min(1),
   description: z.string().optional(),
   category: z.string().optional(),
+  caseCodeId: z.string().optional(),
   queueId: z.string().optional(),
 });
 
@@ -47,7 +48,9 @@ export async function POST(req: NextRequest) {
     const ctx = await requireSession();
     const body = createSchema.parse(await req.json());
 
-    const created = await prisma.$transaction((tx) => createCase(tx, { ...body, tenantId: ctx.tenantId }));
+    const created = await prisma.$transaction((tx) =>
+      createCase(tx, { ...body, tenantId: ctx.tenantId, actorId: ctx.userId })
+    );
 
     return NextResponse.json({ case: created }, { status: 201 });
   } catch (err) {

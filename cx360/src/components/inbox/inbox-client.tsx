@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
@@ -314,6 +314,27 @@ function ConvertToCaseForm({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [codes, setCodes] = useState<{ id: string; code: string; category: string; subcategory: string | null }[]>([]);
+  const [loadingCodes, setLoadingCodes] = useState(false);
+  const [category, setCategory] = useState("");
+  const [caseCodeId, setCaseCodeId] = useState("");
+
+  // Reload the category/subcategory options whenever the interaction
+  // type changes — the taxonomy is scoped per type (Complaint's codes
+  // aren't the same list as Request's or Enquiry's).
+  useEffect(() => {
+    setCategory("");
+    setCaseCodeId("");
+    setLoadingCodes(true);
+    fetch(`/api/case-codes?type=${type}`)
+      .then((r) => r.json())
+      .then((data) => setCodes(data.codes ?? []))
+      .finally(() => setLoadingCodes(false));
+  }, [type]);
+
+  const categories = [...new Set(codes.map((c) => c.category))];
+  const subcategoryOptions = codes.filter((c) => c.category === category);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -321,7 +342,7 @@ function ConvertToCaseForm({
     const res = await fetch(`/api/inbox/${interactionId}/convert-to-case`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject, type, priority }),
+      body: JSON.stringify({ subject, type, priority, caseCodeId: caseCodeId || undefined }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -341,13 +362,12 @@ function ConvertToCaseForm({
         <input value={subject} onChange={(e) => setSubject(e.target.value)} className="input" />
       </div>
       <div>
-        <label className="block text-xs font-medium mb-1">Type</label>
+        <label className="block text-xs font-medium mb-1">Interaction type</label>
         <select value={type} onChange={(e) => setType(e.target.value)} className="input">
-          {["SERVICE_REQUEST", "COMPLAINT", "INQUIRY", "INCIDENT"].map((t) => (
-            <option key={t} value={t}>
-              {t.replace("_", " ")}
-            </option>
-          ))}
+          <option value="COMPLAINT">Complaint</option>
+          <option value="SERVICE_REQUEST">Request</option>
+          <option value="INQUIRY">Enquiry</option>
+          <option value="INCIDENT">Incident</option>
         </select>
       </div>
       <div>
@@ -360,6 +380,43 @@ function ConvertToCaseForm({
           ))}
         </select>
       </div>
+
+      <div>
+        <label className="block text-xs font-medium mb-1">Category</label>
+        <select
+          value={category}
+          onChange={(e) => {
+            setCategory(e.target.value);
+            setCaseCodeId("");
+          }}
+          disabled={loadingCodes}
+          className="input"
+        >
+          <option value="">
+            {loadingCodes ? "Loading…" : categories.length === 0 ? "No codes set up for this type" : "Select category"}
+          </option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {category && (
+        <div>
+          <label className="block text-xs font-medium mb-1">Subcategory</label>
+          <select value={caseCodeId} onChange={(e) => setCaseCodeId(e.target.value)} className="input">
+            <option value="">Select subcategory</option>
+            {subcategoryOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.subcategory ?? c.code} ({c.code})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {error && <p className="text-xs text-sla-breach">{error}</p>}
       <button type="submit" disabled={saving || !subject.trim()} className="btn-primary w-full text-sm">
         {saving ? "Creating…" : "Create case & link"}

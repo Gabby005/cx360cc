@@ -9,6 +9,7 @@ const schema = z.object({
   type: z.enum(["SERVICE_REQUEST", "COMPLAINT", "INQUIRY", "INCIDENT"]).default("SERVICE_REQUEST"),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"),
   category: z.string().optional(),
+  caseCodeId: z.string().optional(),
 });
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -31,6 +32,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         subject: body.subject,
         description: interaction.transcript ?? interaction.summary ?? undefined,
         category: body.category,
+        caseCodeId: body.caseCodeId,
+        actorId: ctx.userId,
       });
 
       await tx.interaction.update({

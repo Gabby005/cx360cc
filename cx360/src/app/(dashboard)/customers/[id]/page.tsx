@@ -52,7 +52,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
                 {customer.cases.map((c) => (
                   <li key={c.id} className="py-2.5 flex items-center justify-between text-sm">
                     <Link href={`/cases/${c.id}`} className="font-medium hover:text-brand truncate">
-                      {c.subject}
+                      {c.subject} <span className="font-mono text-[10px] text-ink-950/40 dark:text-surface/40">{c.caseNumber}</span>
                     </Link>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs text-ink-950/50 dark:text-surface/50">{c.status.replace("_", " ")}</span>
