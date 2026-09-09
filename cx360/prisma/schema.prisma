@@ -204,13 +204,15 @@ model Queue {
   team   Team?   @relation(fields: [teamId], references: [id])
   cases  Case[]
 }
- // The approved category/subcategory taxonomy per interaction type — e.g.
- // type=COMPLAINT, code="E0006", category="ATM/POS", subcategory="Dispensed
- // less cash". Admin manages this (bulk CSV upload or one-at-a-time
- // creation); agents pick Category → Subcategory when logging a case,
- // which resolves to one of these rows. The `code` becomes a segment of
- // the case number (see src/lib/case-service.ts).
- 
+
+/**
+ * The approved category/subcategory taxonomy per interaction type — e.g.
+ * type=COMPLAINT, code="E0006", category="ATM/POS", subcategory="Dispensed
+ * less cash". Admin manages this (bulk CSV upload or one-at-a-time
+ * creation); agents pick Category → Subcategory when logging a case,
+ * which resolves to one of these rows. The `code` becomes a segment of
+ * the case number (see src/lib/case-service.ts).
+ */
 model CaseCode {
   id          String   @id @default(cuid())
   tenantId    String
