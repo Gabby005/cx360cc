@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Phone, Mail, MessageSquare, Plus, Send } from "lucide-react";
+import { CaseCodeSelect } from "@/components/cases/case-code-select";
 
 const CHANNELS = ["VOICE", "EMAIL", "SMS", "WHATSAPP", "CHAT", "PORTAL", "SOCIAL"] as const;
 const CHANNEL_ICON: Record<string, typeof Phone> = {
@@ -311,29 +312,9 @@ function ConvertToCaseForm({
   const [subject, setSubject] = useState(defaultSubject);
   const [type, setType] = useState("SERVICE_REQUEST");
   const [priority, setPriority] = useState("MEDIUM");
+  const [caseCodeId, setCaseCodeId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const [codes, setCodes] = useState<{ id: string; code: string; category: string; subcategory: string | null }[]>([]);
-  const [loadingCodes, setLoadingCodes] = useState(false);
-  const [category, setCategory] = useState("");
-  const [caseCodeId, setCaseCodeId] = useState("");
-
-  // Reload the category/subcategory options whenever the interaction
-  // type changes — the taxonomy is scoped per type (Complaint's codes
-  // aren't the same list as Request's or Enquiry's).
-  useEffect(() => {
-    setCategory("");
-    setCaseCodeId("");
-    setLoadingCodes(true);
-    fetch(`/api/case-codes?type=${type}`)
-      .then((r) => r.json())
-      .then((data) => setCodes(data.codes ?? []))
-      .finally(() => setLoadingCodes(false));
-  }, [type]);
-
-  const categories = [...new Set(codes.map((c) => c.category))];
-  const subcategoryOptions = codes.filter((c) => c.category === category);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -381,41 +362,7 @@ function ConvertToCaseForm({
         </select>
       </div>
 
-      <div>
-        <label className="block text-xs font-medium mb-1">Category</label>
-        <select
-          value={category}
-          onChange={(e) => {
-            setCategory(e.target.value);
-            setCaseCodeId("");
-          }}
-          disabled={loadingCodes}
-          className="input"
-        >
-          <option value="">
-            {loadingCodes ? "Loading…" : categories.length === 0 ? "No codes set up for this type" : "Select category"}
-          </option>
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {category && (
-        <div>
-          <label className="block text-xs font-medium mb-1">Subcategory</label>
-          <select value={caseCodeId} onChange={(e) => setCaseCodeId(e.target.value)} className="input">
-            <option value="">Select subcategory</option>
-            {subcategoryOptions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.subcategory ?? c.code} ({c.code})
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <CaseCodeSelect type={type} value={caseCodeId} onChange={setCaseCodeId} />
 
       {error && <p className="text-xs text-sla-breach">{error}</p>}
       <button type="submit" disabled={saving || !subject.trim()} className="btn-primary w-full text-sm">

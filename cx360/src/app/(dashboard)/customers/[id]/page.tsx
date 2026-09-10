@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { SlaBadge } from "@/components/cases/sla-badge";
@@ -36,9 +37,12 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
             {customer.segment && ` · ${customer.segment}`}
           </p>
         </div>
-        {customer.sentimentAvg !== null && (
-          <SentimentBadge value={customer.sentimentAvg!} />
-        )}
+        <div className="flex items-center gap-2">
+          {customer.sentimentAvg !== null && <SentimentBadge value={customer.sentimentAvg!} />}
+          <Link href={`/cases/new?customerId=${customer.id}`} className="btn-primary text-xs">
+            <Plus size={13} /> Log a case
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

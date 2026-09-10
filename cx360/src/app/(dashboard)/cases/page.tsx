@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { SlaBadge } from "@/components/cases/sla-badge";
@@ -57,6 +58,9 @@ export default async function CasesPage({ searchParams }: { searchParams: { stat
             ))}
           </div>
           {(ctx.role === "SUPERVISOR" || ctx.role === "ADMIN") && <BatchCloseButton />}
+          <Link href="/cases/new" className="btn-primary text-xs">
+            <Plus size={13} /> New case
+          </Link>
         </div>
       </div>
 

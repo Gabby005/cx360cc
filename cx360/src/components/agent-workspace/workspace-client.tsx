@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { computeSlaClock, formatCountdown, type SlaTarget } from "@/lib/sla";
 import { formatDistanceToNow } from "date-fns";
-import { BookOpen, Phone, Mail, MessageSquare } from "lucide-react";
+import { BookOpen, Phone, Mail, MessageSquare, Plus } from "lucide-react";
 
 type CaseItem = {
   id: string;
@@ -75,9 +75,14 @@ export function AgentWorkspaceClient({
     <div className="h-full grid grid-cols-1 lg:grid-cols-[320px_1fr_300px]">
       {/* Queue pane */}
       <div className="bg-surface-raised dark:bg-ink-900 border-r border-line-light dark:border-line-dark overflow-y-auto">
-        <div className="px-4 py-4 border-b border-line-light dark:border-line-dark">
-          <h1 className="text-sm font-semibold">My queue</h1>
-          <p className="text-xs text-ink-950/50 dark:text-surface/50">{cases.length} active</p>
+        <div className="px-4 py-4 border-b border-line-light dark:border-line-dark flex items-center justify-between">
+          <div>
+            <h1 className="text-sm font-semibold">My queue</h1>
+            <p className="text-xs text-ink-950/50 dark:text-surface/50">{cases.length} active</p>
+          </div>
+          <Link href="/cases/new" title="Log a new case" className="w-7 h-7 rounded-full grid place-items-center text-ink-950/50 dark:text-surface/50 hover:bg-ink-950/5 dark:hover:bg-surface/10 hover:text-brand">
+            <Plus size={16} />
+          </Link>
         </div>
         <ul>
           {ranked.map(({ case: c, clock }) => (
