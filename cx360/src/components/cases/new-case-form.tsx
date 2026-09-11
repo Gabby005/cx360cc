@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { CaseCodeSelect } from "@/components/cases/case-code-select";
+import { TransactionalFields } from "@/components/cases/transactional-fields";
 
 type Customer = { id: string; firstName: string; lastName: string; email: string | null; phone: string | null };
 
@@ -15,6 +16,10 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
   const [type, setType] = useState("SERVICE_REQUEST");
   const [priority, setPriority] = useState("MEDIUM");
   const [caseCodeId, setCaseCodeId] = useState("");
+  const [isTransactional, setIsTransactional] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("");
+  const [unitId, setUnitId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -23,6 +28,10 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
     setError(null);
     if (!customer) return setError("Select a customer first.");
     if (!subject.trim()) return setError("Subject is required.");
+    if (!description.trim()) return setError("A comment/description is required for every case.");
+    if (isTransactional && (!amount || !currency)) {
+      return setError("Amount and currency are required for a transactional case.");
+    }
 
     setSaving(true);
     const res = await fetch("/api/cases", {
@@ -33,8 +42,12 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
         type,
         priority,
         subject,
-        description: description || undefined,
+        description,
         caseCodeId: caseCodeId || undefined,
+        isTransactional,
+        transactionAmount: isTransactional ? Number(amount) : undefined,
+        transactionCurrency: isTransactional ? currency : undefined,
+        escalatedUnitId: isTransactional && unitId ? unitId : undefined,
       }),
     });
     setSaving(false);
@@ -113,8 +126,21 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
         />
       </div>
 
+      <TransactionalFields
+        isTransactional={isTransactional}
+        onToggle={setIsTransactional}
+        amount={amount}
+        onAmountChange={setAmount}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        unitId={unitId}
+        onUnitChange={setUnitId}
+      />
+
       <div>
-        <label className="block text-xs font-medium mb-1">Description</label>
+        <label className="block text-xs font-medium mb-1">
+          Comment / description <span className="text-sla-breach">*</span>
+        </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}

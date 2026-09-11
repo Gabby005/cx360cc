@@ -29,6 +29,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
       assignedTo: { select: { id: true, name: true } },
       slaPolicy: true,
       caseCode: true,
+      escalatedUnit: true,
       interactions: { orderBy: { createdAt: "desc" } },
     },
   });
@@ -196,6 +197,33 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
             </Link>
             {c.customer.segment && <span className="pill-brand mt-3">{c.customer.segment}</span>}
           </div>
+
+          {c.isTransactional && (
+            <div className="card p-4">
+              <h2 className="text-xs font-semibold text-ink-950/50 dark:text-surface/50 tracking-wide mb-3">
+                Transaction details
+              </h2>
+              <div className="text-sm space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-ink-950/50 dark:text-surface/50">Amount</span>
+                  <span className="font-mono font-medium">
+                    {c.transactionCurrency} {c.transactionAmount?.toString()}
+                  </span>
+                </div>
+                {c.escalatedUnit && (
+                  <div className="flex justify-between items-start gap-2">
+                    <span className="text-ink-950/50 dark:text-surface/50 shrink-0">Escalated to</span>
+                    <span className="text-right">{c.escalatedUnit.name}</span>
+                  </div>
+                )}
+                {c.escalatedAt && (
+                  <p className="text-xs text-ink-950/40 dark:text-surface/40 pt-1">
+                    Escalation email sent {formatDistanceToNow(c.escalatedAt, { addSuffix: true })}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           <CaseActions
             caseId={c.id}

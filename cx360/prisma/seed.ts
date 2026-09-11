@@ -132,16 +132,30 @@ async function main() {
     INCIDENT: "INC",
   };
 
+  // Departments transactional cases can be escalated to — Admin manages
+  // this in /admin/units (upload or one at a time).
+  const unitSeed = [
+    { name: "Fraud Team", email: "fraud@demobank.cx360" },
+    { name: "Card Operations", email: "cardops@demobank.cx360" },
+    { name: "Digital Banking", email: "digital@demobank.cx360" },
+  ];
+  for (const u of unitSeed) {
+    const existing = await prisma.unit.findFirst({ where: { tenantId: tenant.id, email: u.email } });
+    if (!existing) {
+      await prisma.unit.create({ data: { ...u, tenantId: tenant.id } });
+    }
+  }
+
   // Cases with SLA clocks at varying elapsed states (some past due, to
   // demonstrate the SLA badge in warning/breach states out of the box).
   const now = Date.now();
   const caseSeed = [
-    { customer: customers[0], subject: "Disputed card transaction — ₦45,000", type: "COMPLAINT", priority: "CRITICAL", status: "OPEN", ageMinutes: 25, category: "Card Disputes" },
-    { customer: customers[1], subject: "Unable to reset internet banking PIN", type: "SERVICE_REQUEST", priority: "HIGH", status: "NEW", ageMinutes: 40, category: "Digital Banking" },
-    { customer: customers[2], subject: "Request for statement — last 6 months", type: "SERVICE_REQUEST", priority: "LOW", status: "OPEN", ageMinutes: 200, category: "Statements" },
-    { customer: customers[3], subject: "Complaint: branch wait time exceeded 1hr", type: "COMPLAINT", priority: "MEDIUM", status: "PENDING_CUSTOMER", ageMinutes: 300, category: "Branch Service" },
-    { customer: customers[4], subject: "Loan top-up eligibility enquiry", type: "INQUIRY", priority: "LOW", status: "NEW", ageMinutes: 10, category: "Lending" },
-    { customer: customers[0], subject: "Fraud alert — SIM swap suspected", type: "INCIDENT", priority: "CRITICAL", status: "ESCALATED", ageMinutes: 130, category: "Fraud" },
+    { customer: customers[0], subject: "Disputed card transaction — ₦45,000", type: "COMPLAINT", priority: "CRITICAL", status: "OPEN", ageMinutes: 25, category: "Card Disputes", isTransactional: true, transactionAmount: 45000, transactionCurrency: "NGN", unitEmail: "cardops@demobank.cx360" },
+    { customer: customers[1], subject: "Unable to reset internet banking PIN", type: "SERVICE_REQUEST", priority: "HIGH", status: "NEW", ageMinutes: 40, category: "Digital Banking", isTransactional: false, transactionAmount: null, transactionCurrency: null, unitEmail: null },
+    { customer: customers[2], subject: "Request for statement — last 6 months", type: "SERVICE_REQUEST", priority: "LOW", status: "OPEN", ageMinutes: 200, category: "Statements", isTransactional: false, transactionAmount: null, transactionCurrency: null, unitEmail: null },
+    { customer: customers[3], subject: "Complaint: branch wait time exceeded 1hr", type: "COMPLAINT", priority: "MEDIUM", status: "PENDING_CUSTOMER", ageMinutes: 300, category: "Branch Service", isTransactional: false, transactionAmount: null, transactionCurrency: null, unitEmail: null },
+    { customer: customers[4], subject: "Loan top-up eligibility enquiry", type: "INQUIRY", priority: "LOW", status: "NEW", ageMinutes: 10, category: "Lending", isTransactional: false, transactionAmount: null, transactionCurrency: null, unitEmail: null },
+    { customer: customers[0], subject: "Fraud alert — SIM swap suspected", type: "INCIDENT", priority: "CRITICAL", status: "ESCALATED", ageMinutes: 130, category: "Fraud", isTransactional: false, transactionAmount: null, transactionCurrency: null, unitEmail: null },
   ] as const;
 
   for (const c of caseSeed) {
@@ -151,6 +165,7 @@ async function main() {
     let kase = existing;
     if (!kase) {
       const caseCodeEntry = caseCodeByKey.get(`${c.type}:${c.category}`);
+      const unit = c.unitEmail ? await prisma.unit.findFirst({ where: { tenantId: tenant.id, email: c.unitEmail } }) : null;
       // Bump the tenant's case sequence and use it for this seeded case's
       // number, so numbers generated later by the real createCase() service
       // (used by the app itself) continue from here without colliding.
@@ -167,11 +182,17 @@ async function main() {
           caseNumber,
           customerId: c.customer.id,
           subject: c.subject,
+          description: `Seed data: ${c.subject}`,
           type: c.type,
           priority: c.priority,
           status: c.status,
           category: c.category,
           caseCodeId: caseCodeEntry?.id,
+          isTransactional: c.isTransactional,
+          transactionAmount: c.transactionAmount ?? undefined,
+          transactionCurrency: c.transactionCurrency ?? undefined,
+          escalatedUnitId: unit?.id,
+          escalatedAt: unit ? createdAt : undefined,
           queueId: queue.id,
           slaPolicyId: policies[c.priority],
           assignedToId: [agent1.id, agent2.id][Math.floor(Math.random() * 2)],

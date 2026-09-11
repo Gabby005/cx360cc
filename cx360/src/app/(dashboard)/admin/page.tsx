@@ -31,8 +31,8 @@ export default async function AdminPage() {
         </Link>
       </div>
       <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-6">
-        SLA policy shown below is live. Notification templates and full audit log viewer are Phase 2 — API keys and
-        webhooks live in the Integration Hub.
+        SLA policy shown below is live. Full audit log viewer is Phase 2 — API keys and webhooks live in the
+        Integration Hub.
       </p>
 
       <section className="mb-6">
@@ -77,6 +77,31 @@ export default async function AdminPage() {
         <div className="card p-4 text-sm text-ink-950/60 dark:text-surface/60">
           The approved category/subcategory codes (e.g. <code className="kbd">E0006</code>) that appear in case
           numbers. Upload in bulk via CSV or add one at a time.
+        </div>
+      </section>
+
+      <section className="mt-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold">Units</h2>
+          <Link href="/admin/units" className="text-xs text-brand hover:underline">
+            Manage units →
+          </Link>
+        </div>
+        <div className="card p-4 text-sm text-ink-950/60 dark:text-surface/60">
+          Department email addresses that transactional cases can be escalated to on submission.
+        </div>
+      </section>
+
+      <section className="mt-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold">Notifications</h2>
+          <Link href="/admin/notifications" className="text-xs text-brand hover:underline">
+            View log →
+          </Link>
+        </div>
+        <div className="card p-4 text-sm text-ink-950/60 dark:text-surface/60">
+          Every customer ticket-opened/closed message, unit escalation, and SLA-triggered notification the app has
+          attempted to send.
         </div>
       </section>
     </div>

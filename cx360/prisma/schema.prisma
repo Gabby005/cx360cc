@@ -27,6 +27,8 @@ model Tenant {
   customers    Customer[]
   cases        Case[]
   caseCodes    CaseCode[]
+  units        Unit[]
+  notificationLogs NotificationLog[]
   slaPolicies  SlaPolicy[]
   queues       Queue[]
   teams        Team[]
@@ -228,6 +230,47 @@ model CaseCode {
   @@index([tenantId, type])
 }
 
+// A department/unit that transactional cases can be escalated to — e.g.
+// "Fraud Team" / fraud@bank.com. Admin manages this the same way as
+// CaseCode: bulk CSV upload (columns: name,email) or one at a time.
+// Selecting a unit on a transactional case fires a notification to its
+// email via src/lib/notifications.ts.
+model Unit {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  email     String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  cases  Case[]
+
+  @@unique([tenantId, email])
+}
+
+// Every notification the app has attempted to send — customer "case
+// opened"/"case closed" emails+SMS, unit escalation emails, and (via the
+// workflow engine's `notify` action) SLA-triggered messages. Real
+// delivery needs a provider (SendGrid, Twilio, etc.) which this
+// environment doesn't have credentials for, so status stays "logged"
+// until one is wired in — see src/lib/notifications.ts.
+model NotificationLog {
+  id            String   @id @default(cuid())
+  tenantId      String
+  channel       String   // "email" | "sms"
+  to            String
+  subject       String?
+  message       String
+  relatedCaseId String?
+  status        String   @default("logged") // logged | sent | failed
+  createdAt     DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, createdAt])
+}
+
 model Case {
   id           String     @id @default(cuid())
   tenantId     String
@@ -237,9 +280,14 @@ model Case {
   priority     Priority   @default(MEDIUM)
   status       CaseStatus @default(NEW)
   subject      String
-  description  String?
+  description  String?    // kept nullable in the DB for old rows created before this was enforced; new cases require it at the API/form layer
   category     String?   // legacy freeform tag — kept for cases created before the CaseCode taxonomy existed
   caseCodeId   String?   // structured category/subcategory code (approved by Admin), drives the caseNumber
+  isTransactional     Boolean  @default(false)
+  transactionAmount   Decimal? @db.Decimal(14, 2)
+  transactionCurrency String?  // "NGN" | "USD" | "GBP" | "EUR" — kept as a plain string so adding a currency doesn't need a migration
+  escalatedUnitId     String?
+  escalatedAt         DateTime?
   queueId      String?
   assignedToId String?
   slaPolicyId  String?
@@ -257,6 +305,7 @@ model Case {
   queue       Queue?        @relation(fields: [queueId], references: [id])
   slaPolicy   SlaPolicy?    @relation(fields: [slaPolicyId], references: [id])
   caseCode    CaseCode?     @relation(fields: [caseCodeId], references: [id])
+  escalatedUnit Unit?       @relation(fields: [escalatedUnitId], references: [id])
   interactions Interaction[]
   notes       CaseNote[]
   qaReviews   QaReview[]

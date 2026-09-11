@@ -241,6 +241,43 @@ shared service used by the Cases API, the Inbox's convert-to-case action,
 and the external `/api/v1/cases` endpoint — so every entry point produces
 identically-formatted numbers with zero duplicated logic.
 
-## 8. Getting it running
+## 8. Transactional cases, unit escalation, and notifications
+
+Three related pieces, all routed through one shared layer
+(`src/lib/notifications.ts`):
+
+- **Transactional toggle** — the New Case form and the Inbox's "Convert to
+  case" form both have a "This is a transactional case" checkbox. Turning
+  it on requires an Amount + Currency (enforced both client-side and in
+  the zod schema server-side) and reveals an optional "Escalate to unit"
+  dropdown.
+- **Units** — `Unit` model (`Admin → Units`): department name + email,
+  managed the same way as `CaseCode` (bulk CSV upload with columns
+  `name,email`, or one at a time). If a transactional case has a unit
+  selected, submitting it fires an escalation email to that unit —
+  handled inside `createCase()` so it's identical regardless of which
+  form created the case.
+- **Comment required on every case** — `description` went from optional
+  to required (`z.string().min(1)`) in every case-creation endpoint
+  (Cases API, Inbox convert-to-case, external v1 API). Old rows from
+  before this was enforced stay nullable in the DB; new ones can't be
+  created without one.
+- **Customer notifications** — every case creation sends the customer an
+  "opened" message (email + SMS, whichever contact points exist); every
+  transition to `CLOSED` (single-case PATCH or batch-close) sends a
+  "closed" message. Both call `notifyCustomer()`.
+- **SLA-triggered notifications** — the workflow engine's `notify` action
+  (see §4) now actually calls `sendNotification()` for the `email`
+  channel, instead of just logging an inert string. Same layer, same
+  audit trail, whether the trigger was a case event or an SLA rule.
+
+**No real provider is configured** — there's no SendGrid/Twilio/etc.
+credentials in this environment. `sendNotification()` logs every attempt
+to `NotificationLog` (viewable at `Admin → Notifications`) with
+`status: "logged"`. Wiring a real provider is a one-function change at
+the `console.log` line in `src/lib/notifications.ts`; nothing else in the
+app needs to change since everything already calls that one function.
+
+## 9. Getting it running
 
 See `README.md` for exact setup, database, and Netlify deployment steps.

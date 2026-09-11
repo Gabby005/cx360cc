@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
-import { logCaseActivity } from "@/lib/case-service";
+import { logCaseActivity, notifyCaseClosed } from "@/lib/case-service";
 
 const filterSchema = z.object({
   fromDate: z.string(),
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
           before: { status: c.status },
           after: { status: "CLOSED" },
         });
+        await notifyCaseClosed(tx, ctx.tenantId, c.id);
       }
     });
 

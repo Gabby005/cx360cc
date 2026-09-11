@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
-import { logCaseActivity } from "@/lib/case-service";
+import { logCaseActivity, notifyCaseClosed } from "@/lib/case-service";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -120,6 +120,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           before: { assignedToId: existing.assignedToId },
           after: { assignedToId: body.assignedToId },
         });
+      }
+
+      if (body.status === "CLOSED" && existing.status !== "CLOSED") {
+        await notifyCaseClosed(tx, ctx.tenantId, existing.id);
       }
 
       return u;

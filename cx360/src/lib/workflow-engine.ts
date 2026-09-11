@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client";
+import { sendNotification } from "./notifications";
 
 /**
  * Workflow Execution Engine
@@ -168,10 +169,24 @@ async function executeAction(
     }
 
     case "notify": {
-      // Real Slack/email delivery is a Phase 2 integration; this records
-      // the notification intent so it's visible in the execution log and
-      // can be wired to a real provider without changing the rule shape.
-      return { type: action.type, result: `would notify ${action.params.channel}:${action.params.target}` };
+      // Routes through the same notification layer as customer
+      // open/close messages and unit escalations, so SLA-triggered
+      // notifications show up in the same NotificationLog rather than
+      // being a separate, invisible code path.
+      if (action.params.channel === "email") {
+        await sendNotification(tx, {
+          tenantId,
+          channel: "email",
+          to: action.params.target,
+          subject: action.params.template ?? "CX360 workflow notification",
+          message: `Triggered by workflow rule for ${ctx.eventType ?? "an event"}${ctx.caseId ? ` on case ${ctx.caseId}` : ""}.`,
+          relatedCaseId: typeof ctx.caseId === "string" ? ctx.caseId : undefined,
+        });
+        return { type: action.type, result: `emailed ${action.params.target}` };
+      }
+      // Slack delivery needs a webhook URL/app credential this
+      // environment doesn't have — logged as intent only, same as before.
+      return { type: action.type, result: `would notify slack:${action.params.target}` };
     }
 
     default:

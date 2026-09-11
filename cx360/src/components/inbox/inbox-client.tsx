@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Phone, Mail, MessageSquare, Plus, Send } from "lucide-react";
 import { CaseCodeSelect } from "@/components/cases/case-code-select";
+import { TransactionalFields } from "@/components/cases/transactional-fields";
 
 const CHANNELS = ["VOICE", "EMAIL", "SMS", "WHATSAPP", "CHAT", "PORTAL", "SOCIAL"] as const;
 const CHANNEL_ICON: Record<string, typeof Phone> = {
@@ -155,6 +156,7 @@ export function InboxClient({ initialItems, customers }: { initialItems: Item[];
           <ConvertToCaseForm
             interactionId={selected.id}
             defaultSubject={selected.summary ?? ""}
+            defaultComment={selected.summary ?? ""}
             onConverted={(caseId) => {
               setItems((prev) => prev.filter((i) => i.id !== selected.id));
               setSelectedId(null);
@@ -303,27 +305,49 @@ function ThreadView({
 function ConvertToCaseForm({
   interactionId,
   defaultSubject,
+  defaultComment,
   onConverted,
 }: {
   interactionId: string;
   defaultSubject: string;
+  defaultComment: string;
   onConverted: (caseId: string) => void;
 }) {
   const [subject, setSubject] = useState(defaultSubject);
+  const [comment, setComment] = useState(defaultComment);
   const [type, setType] = useState("SERVICE_REQUEST");
   const [priority, setPriority] = useState("MEDIUM");
   const [caseCodeId, setCaseCodeId] = useState("");
+  const [isTransactional, setIsTransactional] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("");
+  const [unitId, setUnitId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!comment.trim()) return setError("A comment/description is required for every case.");
+    if (isTransactional && (!amount || !currency)) {
+      return setError("Amount and currency are required for a transactional case.");
+    }
+
     setSaving(true);
     const res = await fetch(`/api/inbox/${interactionId}/convert-to-case`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject, type, priority, caseCodeId: caseCodeId || undefined }),
+      body: JSON.stringify({
+        subject,
+        type,
+        priority,
+        description: comment,
+        caseCodeId: caseCodeId || undefined,
+        isTransactional,
+        transactionAmount: isTransactional ? Number(amount) : undefined,
+        transactionCurrency: isTransactional ? currency : undefined,
+        escalatedUnitId: isTransactional && unitId ? unitId : undefined,
+      }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -363,6 +387,29 @@ function ConvertToCaseForm({
       </div>
 
       <CaseCodeSelect type={type} value={caseCodeId} onChange={setCaseCodeId} />
+
+      <TransactionalFields
+        isTransactional={isTransactional}
+        onToggle={setIsTransactional}
+        amount={amount}
+        onAmountChange={setAmount}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        unitId={unitId}
+        onUnitChange={setUnitId}
+      />
+
+      <div>
+        <label className="block text-xs font-medium mb-1">
+          Comment / description <span className="text-sla-breach">*</span>
+        </label>
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          rows={3}
+          className="input resize-none"
+        />
+      </div>
 
       {error && <p className="text-xs text-sla-breach">{error}</p>}
       <button type="submit" disabled={saving || !subject.trim()} className="btn-primary w-full text-sm">

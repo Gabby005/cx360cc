@@ -4,13 +4,25 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
 import { createCase } from "@/lib/case-service";
 
-const schema = z.object({
-  subject: z.string().min(1),
-  type: z.enum(["SERVICE_REQUEST", "COMPLAINT", "INQUIRY", "INCIDENT"]).default("SERVICE_REQUEST"),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"),
-  category: z.string().optional(),
-  caseCodeId: z.string().optional(),
-});
+const CURRENCIES = ["NGN", "USD", "GBP", "EUR"] as const;
+
+const schema = z
+  .object({
+    subject: z.string().min(1),
+    type: z.enum(["SERVICE_REQUEST", "COMPLAINT", "INQUIRY", "INCIDENT"]).default("SERVICE_REQUEST"),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"),
+    description: z.string().min(1, "A comment/description is required for every case."),
+    category: z.string().optional(),
+    caseCodeId: z.string().optional(),
+    isTransactional: z.boolean().default(false),
+    transactionAmount: z.number().positive().optional(),
+    transactionCurrency: z.enum(CURRENCIES).optional(),
+    escalatedUnitId: z.string().optional(),
+  })
+  .refine((data) => !data.isTransactional || (data.transactionAmount && data.transactionCurrency), {
+    message: "Amount and currency are required for a transactional case.",
+    path: ["transactionAmount"],
+  });
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -30,9 +42,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         type: body.type,
         priority: body.priority,
         subject: body.subject,
-        description: interaction.transcript ?? interaction.summary ?? undefined,
+        description: body.description,
         category: body.category,
         caseCodeId: body.caseCodeId,
+        isTransactional: body.isTransactional,
+        transactionAmount: body.transactionAmount,
+        transactionCurrency: body.transactionCurrency,
+        escalatedUnitId: body.escalatedUnitId,
         actorId: ctx.userId,
       });
 

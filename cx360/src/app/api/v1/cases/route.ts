@@ -24,14 +24,26 @@ export async function GET(req: NextRequest) {
   }
 }
 
-const createSchema = z.object({
-  customerId: z.string(),
-  type: z.enum(["SERVICE_REQUEST", "COMPLAINT", "INQUIRY", "INCIDENT"]).default("SERVICE_REQUEST"),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"),
-  subject: z.string().min(1),
-  description: z.string().optional(),
-  category: z.string().optional(),
-});
+const CURRENCIES = ["NGN", "USD", "GBP", "EUR"] as const;
+
+const createSchema = z
+  .object({
+    customerId: z.string(),
+    type: z.enum(["SERVICE_REQUEST", "COMPLAINT", "INQUIRY", "INCIDENT"]).default("SERVICE_REQUEST"),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"),
+    subject: z.string().min(1),
+    description: z.string().min(1, "A comment/description is required for every case."),
+    category: z.string().optional(),
+    caseCodeId: z.string().optional(),
+    isTransactional: z.boolean().default(false),
+    transactionAmount: z.number().positive().optional(),
+    transactionCurrency: z.enum(CURRENCIES).optional(),
+    escalatedUnitId: z.string().optional(),
+  })
+  .refine((data) => !data.isTransactional || (data.transactionAmount && data.transactionCurrency), {
+    message: "Amount and currency are required for a transactional case.",
+    path: ["transactionAmount"],
+  });
 
 // Same createCase() service backing the UI's Cases API and the Inbox's
 // convert-to-case action — an external system creating a case via API key
