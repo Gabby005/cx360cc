@@ -90,22 +90,76 @@ async function main() {
     { firstName: "Grace", lastName: "Adeyemi", email: "grace.adeyemi@example.com", phone: "+2348012345005", segment: "Premier", sentimentAvg: 0.5 },
   ];
 
+  const now = Date.now();
   const customers = [];
-  for (const c of customerSeed) {
+  for (const [idx, c] of customerSeed.entries()) {
     const existing = await prisma.customer.findFirst({ where: { tenantId: tenant.id, email: c.email } });
     const customer =
       existing ??
       (await prisma.customer.create({ data: { ...c, tenantId: tenant.id } }));
     customers.push(customer);
 
-    await prisma.customerProduct.create({
-      data: {
-        customerId: customer.id,
-        productName: "Everyday Current Account",
-        accountRef: `ACC-${customer.id.slice(-6).toUpperCase()}`,
-        status: "active",
-      },
-    });
+    const existingProduct = await prisma.customerProduct.findFirst({ where: { customerId: customer.id } });
+    if (!existingProduct) {
+      const currentAccount = await prisma.customerProduct.create({
+        data: {
+          customerId: customer.id,
+          productName: "Everyday Current Account",
+          accountRef: `ACC-${customer.id.slice(-6).toUpperCase()}`,
+          status: "active",
+          // Simulated core-banking balance — see src/lib/core-banking.ts.
+          balance: 250000 + idx * 37500,
+          currency: "NGN",
+        },
+      });
+
+      const txSeed = [
+        { type: "debit", amount: 15000, description: "POS purchase — Shoprite", daysAgo: 1 },
+        { type: "credit", amount: 120000, description: "Salary payment", daysAgo: 3 },
+        { type: "debit", amount: 5000, description: "Airtime top-up", daysAgo: 4 },
+        { type: "debit", amount: 45000, description: "Transfer to savings", daysAgo: 6 },
+        { type: "credit", amount: 8500, description: "Refund — online order", daysAgo: 9 },
+      ] as const;
+      for (const t of txSeed) {
+        await prisma.accountTransaction.create({
+          data: {
+            tenantId: tenant.id,
+            customerProductId: currentAccount.id,
+            type: t.type,
+            amount: t.amount,
+            currency: "NGN",
+            description: t.description,
+            transactionDate: new Date(now - t.daysAgo * 24 * 60 * 60 * 1000),
+          },
+        });
+      }
+
+      // Give the first customer a second linked account, to demo the
+      // clickable "switch between sibling accounts" navigation.
+      if (idx === 0) {
+        const savings = await prisma.customerProduct.create({
+          data: {
+            customerId: customer.id,
+            productName: "High-Yield Savings",
+            accountRef: `SAV-${customer.id.slice(-6).toUpperCase()}`,
+            status: "active",
+            balance: 1250000,
+            currency: "NGN",
+          },
+        });
+        await prisma.accountTransaction.create({
+          data: {
+            tenantId: tenant.id,
+            customerProductId: savings.id,
+            type: "credit",
+            amount: 45000,
+            currency: "NGN",
+            description: "Transfer from current account",
+            transactionDate: new Date(now - 6 * 24 * 60 * 60 * 1000),
+          },
+        });
+      }
+    }
   }
 
   // Approved category/subcategory codes — the taxonomy Admin manages in
@@ -148,7 +202,6 @@ async function main() {
 
   // Cases with SLA clocks at varying elapsed states (some past due, to
   // demonstrate the SLA badge in warning/breach states out of the box).
-  const now = Date.now();
   const caseSeed = [
     { customer: customers[0], subject: "Disputed card transaction — ₦45,000", type: "COMPLAINT", priority: "CRITICAL", status: "OPEN", ageMinutes: 25, category: "Card Disputes", isTransactional: true, transactionAmount: 45000, transactionCurrency: "NGN", unitEmail: "cardops@demobank.cx360" },
     { customer: customers[1], subject: "Unable to reset internet banking PIN", type: "SERVICE_REQUEST", priority: "HIGH", status: "NEW", ageMinutes: 40, category: "Digital Banking", isTransactional: false, transactionAmount: null, transactionCurrency: null, unitEmail: null },

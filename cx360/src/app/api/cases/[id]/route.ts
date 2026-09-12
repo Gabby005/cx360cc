@@ -26,7 +26,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 const patchSchema = z.object({
-  status: z.enum(["NEW", "OPEN", "PENDING_CUSTOMER", "ESCALATED", "RESOLVED", "CLOSED"]).optional(),
+  status: z
+    .enum(["NEW", "OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY", "ESCALATED", "RESOLVED", "CLOSED"])
+    .optional(),
   assignedToId: z.string().nullable().optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
 });
@@ -61,7 +63,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     // First response/resolution timestamps drive the SLA clock stage
     // transitions — stamp them the moment status implies the milestone.
-    if (body.status && !existing.respondedAt && ["OPEN", "PENDING_CUSTOMER"].includes(body.status)) {
+    if (
+      body.status &&
+      !existing.respondedAt &&
+      ["OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY"].includes(body.status)
+    ) {
       data.respondedAt = now;
     }
     if (body.status === "RESOLVED" && !existing.resolvedAt) {

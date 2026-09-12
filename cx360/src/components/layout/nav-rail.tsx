@@ -28,7 +28,15 @@ const ITEMS = [
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
 ] as const;
 
-export function NavRail({ role }: { role: string }) {
+export function NavRail({
+  role,
+  tenantName,
+  logoDataUrl,
+}: {
+  role: string;
+  tenantName?: string;
+  logoDataUrl?: string | null;
+}) {
   const pathname = usePathname();
 
   return (
@@ -37,13 +45,18 @@ export function NavRail({ role }: { role: string }) {
       className="w-60 shrink-0 bg-surface-raised dark:bg-ink-900 border-r border-line-light dark:border-line-dark flex flex-col py-4"
     >
       <div className="flex items-center gap-2 px-4 mb-6">
-        <div
-          aria-hidden
-          className="w-8 h-8 rounded-lg bg-brand text-white grid place-items-center font-semibold text-sm shrink-0"
-        >
-          CX
-        </div>
-        <span className="font-semibold text-sm">CX360</span>
+        {logoDataUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoDataUrl} alt={tenantName ?? "Logo"} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+        ) : (
+          <div
+            aria-hidden
+            className="w-8 h-8 rounded-lg bg-brand text-white grid place-items-center font-semibold text-sm shrink-0"
+          >
+            CX
+          </div>
+        )}
+        <span className="font-semibold text-sm truncate">{tenantName ?? "CX360"}</span>
       </div>
 
       <div className="flex-1 px-2 space-y-0.5">

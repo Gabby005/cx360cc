@@ -4,15 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { SlaBadge } from "@/components/cases/sla-badge";
 import { BatchCloseButton } from "@/components/cases/batch-close-button";
-
-const STATUS_LABEL: Record<string, string> = {
-  NEW: "New",
-  OPEN: "Open",
-  PENDING_CUSTOMER: "Pending customer",
-  ESCALATED: "Escalated",
-  RESOLVED: "Resolved",
-  CLOSED: "Closed",
-};
+import { STATUS_LABEL, STATUS_PILL } from "@/lib/case-status";
 
 export default async function CasesPage({ searchParams }: { searchParams: { status?: string } }) {
   const ctx = await requireSession();
@@ -32,7 +24,7 @@ export default async function CasesPage({ searchParams }: { searchParams: { stat
     },
   });
 
-  const filters = ["all", "NEW", "OPEN", "PENDING_CUSTOMER", "ESCALATED"];
+  const filters = ["all", "NEW", "OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY", "ESCALATED"];
 
   return (
     <div className="h-full flex flex-col">
@@ -104,7 +96,7 @@ export default async function CasesPage({ searchParams }: { searchParams: { stat
                     <PriorityPill priority={c.priority} />
                   </td>
                   <td className="px-3 py-3.5">
-                    <span className="pill-neutral">{STATUS_LABEL[c.status]}</span>
+                    <span className={STATUS_PILL[c.status] ?? "pill-neutral"}>{STATUS_LABEL[c.status]}</span>
                   </td>
                   <td className="px-3 py-3.5 text-ink-950/70 dark:text-surface/70">
                     {c.assignedTo?.name ?? <span className="text-ink-950/35 dark:text-surface/35">Unassigned</span>}

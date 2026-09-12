@@ -22,7 +22,7 @@ export default async function TeamPage() {
           where: { tenantId: ctx.tenantId, assignedToId: a.id, status: { in: ["NEW", "OPEN", "ESCALATED"] } },
         }),
         prisma.case.count({
-          where: { tenantId: ctx.tenantId, assignedToId: a.id, status: "PENDING_CUSTOMER" },
+          where: { tenantId: ctx.tenantId, assignedToId: a.id, status: { in: ["PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY"] } },
         }),
         prisma.case.count({
           where: { tenantId: ctx.tenantId, assignedToId: a.id, resolvedAt: { gte: startOfDay } },

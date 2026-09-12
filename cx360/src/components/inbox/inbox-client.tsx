@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Phone, Mail, MessageSquare, Plus, Send } from "lucide-react";
 import { CaseCodeSelect } from "@/components/cases/case-code-select";
-import { TransactionalFields } from "@/components/cases/transactional-fields";
+import { TransactionalToggle, UnitEscalationField } from "@/components/cases/transactional-fields";
 
 const CHANNELS = ["VOICE", "EMAIL", "SMS", "WHATSAPP", "CHAT", "PORTAL", "SOCIAL"] as const;
 const CHANNEL_ICON: Record<string, typeof Phone> = {
@@ -388,15 +388,13 @@ function ConvertToCaseForm({
 
       <CaseCodeSelect type={type} value={caseCodeId} onChange={setCaseCodeId} />
 
-      <TransactionalFields
+      <TransactionalToggle
         isTransactional={isTransactional}
         onToggle={setIsTransactional}
         amount={amount}
         onAmountChange={setAmount}
         currency={currency}
         onCurrencyChange={setCurrency}
-        unitId={unitId}
-        onUnitChange={setUnitId}
       />
 
       <div>
@@ -410,6 +408,8 @@ function ConvertToCaseForm({
           className="input resize-none"
         />
       </div>
+
+      <UnitEscalationField isTransactional={isTransactional} unitId={unitId} onUnitChange={setUnitId} />
 
       {error && <p className="text-xs text-sla-breach">{error}</p>}
       <button type="submit" disabled={saving || !subject.trim()} className="btn-primary w-full text-sm">

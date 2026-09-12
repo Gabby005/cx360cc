@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   }
 
   const openCases = await prisma.case.findMany({
-    where: { status: { in: ["NEW", "OPEN", "PENDING_CUSTOMER", "ESCALATED"] }, slaPolicyId: { not: null } },
+    where: { status: { in: ["NEW", "OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY", "ESCALATED"] }, slaPolicyId: { not: null } },
     include: { slaPolicy: true },
   });
 

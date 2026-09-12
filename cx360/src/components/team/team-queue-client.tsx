@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SlaBadge } from "@/components/cases/sla-badge";
 import type { SlaTarget } from "@/lib/sla";
+import { STATUS_LABEL } from "@/lib/case-status";
 
 type CaseRow = {
   id: string;
@@ -20,12 +21,6 @@ type CaseRow = {
   assignedTo: { id: string; name: string } | null;
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  NEW: "New",
-  OPEN: "Open",
-  PENDING_CUSTOMER: "Pending customer",
-  ESCALATED: "Escalated",
-};
 
 const PRIORITY_PILL: Record<string, string> = {
   CRITICAL: "pill-breach",

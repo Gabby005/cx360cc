@@ -7,7 +7,7 @@ import { logCaseActivity, notifyCaseClosed } from "@/lib/case-service";
 const filterSchema = z.object({
   fromDate: z.string(),
   toDate: z.string(),
-  status: z.enum(["NEW", "OPEN", "PENDING_CUSTOMER", "ESCALATED", "RESOLVED"]).optional(),
+  status: z.enum(["NEW", "OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY", "ESCALATED", "RESOLVED"]).optional(),
 });
 
 function buildWhere(tenantId: string, filter: z.infer<typeof filterSchema>) {

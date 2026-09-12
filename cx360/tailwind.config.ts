@@ -21,9 +21,14 @@ const config: Config = {
           dark: "#28304A",
         },
         brand: {
-          DEFAULT: "#5B5FEF", // indigo — modern helpdesk accent
-          light: "#EEEEFE",
-          dark: "#4547C4",
+          // rgb(var(...) / <alpha-value>) lets Tailwind's opacity utilities
+          // (bg-brand/10, text-brand/70, etc.) keep working while the base
+          // color itself comes from a CSS var injected per-tenant at
+          // runtime (see src/lib/theme.ts) — falls back to the indigo
+          // default via the var()'s second argument if nothing injected it.
+          DEFAULT: "rgb(var(--brand-rgb, 91 95 239) / <alpha-value>)",
+          light: "rgb(var(--brand-light-rgb, 238 238 254) / <alpha-value>)",
+          dark: "rgb(var(--brand-dark-rgb, 69 71 196) / <alpha-value>)",
         },
         sla: {
           ok: "#16A34A",

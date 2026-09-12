@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { CASE_STATUSES, STATUS_LABEL, STATUS_PILL } from "@/lib/case-status";
 
-const STATUSES = ["NEW", "OPEN", "PENDING_CUSTOMER", "ESCALATED", "RESOLVED", "CLOSED"];
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
 const PRIORITY_PILL: Record<string, string> = {
@@ -11,12 +11,6 @@ const PRIORITY_PILL: Record<string, string> = {
   HIGH: "pill-warning",
   MEDIUM: "pill-neutral",
   LOW: "pill-neutral",
-};
-
-const STATUS_PILL: Record<string, string> = {
-  ESCALATED: "pill-breach",
-  RESOLVED: "pill-ok",
-  CLOSED: "pill-neutral",
 };
 
 export function CaseActions({
@@ -66,7 +60,7 @@ export function CaseActions({
         Ticket properties
       </h2>
 
-      <Field label="Status" pillClass={STATUS_PILL[localStatus] ?? "pill-neutral"} pillLabel={localStatus.replace("_", " ")}>
+      <Field label="Status" pillClass={STATUS_PILL[localStatus] ?? "pill-neutral"} pillLabel={STATUS_LABEL[localStatus] ?? localStatus}>
         <select
           value={localStatus}
           onChange={(e) => {
@@ -75,9 +69,9 @@ export function CaseActions({
           }}
           className="input"
         >
-          {STATUSES.map((s) => (
+          {CASE_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {s.replace("_", " ")}
+              {STATUS_LABEL[s]}
             </option>
           ))}
         </select>

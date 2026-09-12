@@ -5,6 +5,7 @@ import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session } from "next-auth";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function TopBar({ user }: { user: Session["user"] }) {
   const router = useRouter();
@@ -48,6 +49,8 @@ export function TopBar({ user }: { user: Session["user"] }) {
       </form>
 
       <div className="flex-1" />
+
+      <ThemeToggle />
 
       <button
         aria-label="Notifications"

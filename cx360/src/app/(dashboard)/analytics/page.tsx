@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
+import { STATUS_LABEL } from "@/lib/case-status";
 
 export default async function AnalyticsPage() {
   const ctx = await requireSession();
@@ -28,7 +29,7 @@ export default async function AnalyticsPage() {
           <ul className="space-y-1.5 text-sm">
             {byStatus.map((s) => (
               <li key={s.status} className="flex justify-between">
-                <span className="text-ink-950/70 dark:text-surface/70">{s.status.replace("_", " ")}</span>
+                <span className="text-ink-950/70 dark:text-surface/70">{STATUS_LABEL[s.status] ?? s.status}</span>
                 <span className="font-mono">{s._count}</span>
               </li>
             ))}

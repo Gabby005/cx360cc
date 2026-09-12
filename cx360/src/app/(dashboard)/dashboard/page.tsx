@@ -8,13 +8,13 @@ export default async function DashboardPage() {
   const ctx = await requireSession();
 
   const [openCases, resolvedToday, breachedCount, casesWithPolicy] = await Promise.all([
-    prisma.case.count({ where: { tenantId: ctx.tenantId, status: { in: ["NEW", "OPEN", "PENDING_CUSTOMER", "ESCALATED"] } } }),
+    prisma.case.count({ where: { tenantId: ctx.tenantId, status: { in: ["NEW", "OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY", "ESCALATED"] } } }),
     prisma.case.count({
       where: { tenantId: ctx.tenantId, resolvedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
     }),
     prisma.case.count({ where: { tenantId: ctx.tenantId, status: "ESCALATED" } }),
     prisma.case.findMany({
-      where: { tenantId: ctx.tenantId, status: { in: ["NEW", "OPEN", "PENDING_CUSTOMER"] }, slaPolicyId: { not: null } },
+      where: { tenantId: ctx.tenantId, status: { in: ["NEW", "OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY"] }, slaPolicyId: { not: null } },
       include: { slaPolicy: true, customer: { select: { firstName: true, lastName: true } } },
       orderBy: { createdAt: "asc" },
       take: 8,

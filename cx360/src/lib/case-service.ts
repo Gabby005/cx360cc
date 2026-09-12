@@ -219,3 +219,42 @@ export async function notifyCaseClosed(tx: Tx, tenantId: string, caseId: string)
     relatedCaseId: kase.id,
   });
 }
+
+/**
+ * Reopens a closed case instead of forcing a brand-new one for the same
+ * underlying issue (e.g. the customer calls back about something already
+ * marked resolved). Keeps the original case number and full history —
+ * the new activity just continues on the same record — and tracks how
+ * many times a case has been reused, which is itself a useful quality
+ * signal (a case reopened repeatedly may not have been properly resolved).
+ */
+export async function reopenCase(tx: Tx, tenantId: string, caseId: string, actorId: string) {
+  const existing = await tx.case.findFirst({ where: { id: caseId, tenantId } });
+  if (!existing) {
+    throw new ApiError(404, "Case not found.");
+  }
+  if (existing.status !== "CLOSED") {
+    throw new ApiError(400, "Only closed cases can be reused.");
+  }
+
+  const updated = await tx.case.update({
+    where: { id: existing.id },
+    data: {
+      status: "OPEN",
+      closedAt: null,
+      resolvedAt: null,
+      reopenedCount: { increment: 1 },
+    },
+  });
+
+  await logCaseActivity(tx, {
+    tenantId,
+    caseId: existing.id,
+    actorId,
+    action: "reopened",
+    before: { status: "CLOSED" },
+    after: { status: "OPEN" },
+  });
+
+  return updated;
+}

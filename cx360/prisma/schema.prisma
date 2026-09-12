@@ -21,6 +21,8 @@ model Tenant {
   slug              String   @unique
   caseNumberPrefix  String   @default("CX")
   caseSequence      Int      @default(0)
+  brandColor        String   @default("#5B5FEF") // hex; drives --brand-rgb CSS var, see src/lib/theme.ts
+  logoDataUrl       String?  // base64 data URI — no object storage (S3/Cloudinary) configured in this environment
   createdAt         DateTime @default(now())
 
   users        Membership[]
@@ -29,6 +31,7 @@ model Tenant {
   caseCodes    CaseCode[]
   units        Unit[]
   notificationLogs NotificationLog[]
+  accountTransactions AccountTransaction[]
   slaPolicies  SlaPolicy[]
   queues       Queue[]
   teams        Team[]
@@ -123,9 +126,35 @@ model CustomerProduct {
   productName String
   accountRef  String?
   status      String  @default("active")
+  // Balance and currency are populated from core banking in a real
+  // deployment (Flexcube/T24/etc. via src/lib/core-banking.ts). No such
+  // connection exists here, so these are seeded with realistic-looking
+  // simulated values — clearly labeled as such in the UI.
+  balance     Decimal? @db.Decimal(16, 2)
+  currency    String   @default("NGN")
   openedAt    DateTime @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id])
+  transactions AccountTransaction[]
+}
+
+// Simulated recent activity per account — stands in for what a real
+// core-banking read (Flexcube/T24 statement/mini-statement API) would
+// return. See src/lib/core-banking.ts.
+model AccountTransaction {
+  id                String   @id @default(cuid())
+  tenantId          String
+  customerProductId String
+  type              String   // "credit" | "debit"
+  amount            Decimal  @db.Decimal(16, 2)
+  currency          String   @default("NGN")
+  description       String
+  transactionDate   DateTime
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
+  customerProduct CustomerProduct @relation(fields: [customerProductId], references: [id])
+
+  @@index([customerProductId, transactionDate])
 }
 
 enum Channel {
@@ -190,7 +219,9 @@ enum Priority {
 enum CaseStatus {
   NEW
   OPEN
-  PENDING_CUSTOMER
+  PENDING_CUSTOMER   // "Pending with Customer"
+  PENDING_BANK       // "Pending with Bank"
+  PENDING_THIRD_PARTY // "Pending with 3rd Party"
   ESCALATED
   RESOLVED
   CLOSED
@@ -296,6 +327,7 @@ model Case {
   respondedAt     DateTime?
   resolvedAt      DateTime?
   closedAt        DateTime?
+  reopenedCount   Int        @default(0) // incremented each time a closed case is reused rather than creating a new one
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

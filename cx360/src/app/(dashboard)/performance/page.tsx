@@ -11,7 +11,7 @@ export default async function PerformancePage() {
       where: { tenantId: ctx.tenantId, assignedToId: ctx.userId, status: { in: ["NEW", "OPEN", "ESCALATED"] } },
     }),
     prisma.case.count({
-      where: { tenantId: ctx.tenantId, assignedToId: ctx.userId, status: "PENDING_CUSTOMER" },
+      where: { tenantId: ctx.tenantId, assignedToId: ctx.userId, status: { in: ["PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY"] } },
     }),
     prisma.case.count({
       where: { tenantId: ctx.tenantId, assignedToId: ctx.userId, resolvedAt: { gte: startOfDay } },

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { CaseCodeSelect } from "@/components/cases/case-code-select";
-import { TransactionalFields } from "@/components/cases/transactional-fields";
+import { TransactionalToggle, UnitEscalationField } from "@/components/cases/transactional-fields";
 
 type Customer = { id: string; firstName: string; lastName: string; email: string | null; phone: string | null };
 
@@ -126,15 +126,13 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
         />
       </div>
 
-      <TransactionalFields
+      <TransactionalToggle
         isTransactional={isTransactional}
         onToggle={setIsTransactional}
         amount={amount}
         onAmountChange={setAmount}
         currency={currency}
         onCurrencyChange={setCurrency}
-        unitId={unitId}
-        onUnitChange={setUnitId}
       />
 
       <div>
@@ -149,6 +147,8 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
           placeholder="Full details of what the customer reported…"
         />
       </div>
+
+      <UnitEscalationField isTransactional={isTransactional} unitId={unitId} onUnitChange={setUnitId} />
 
       {error && <p className="text-sm text-sla-breach">{error}</p>}
 

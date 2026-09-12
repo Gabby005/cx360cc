@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/tenant";
 import { SlaBadge } from "@/components/cases/sla-badge";
 import { CaseActions } from "@/components/cases/case-actions";
 import { QaReviewPanel } from "@/components/cases/qa-review-panel";
+import { ReuseTicketButton } from "@/components/cases/reuse-ticket-button";
 import { CaseTimeline } from "@/components/cases/case-timeline";
 import { formatDistanceToNow } from "date-fns";
 import { Phone, Mail, MessageSquare, Printer } from "lucide-react";
@@ -98,14 +99,17 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
         <Link href="/cases" className="text-xs text-ink-950/50 dark:text-surface/50 hover:text-brand">
           ← All cases
         </Link>
-        <a
-          href={`/cases/${c.id}/print`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-secondary text-xs"
-        >
-          <Printer size={13} /> Download PDF
-        </a>
+        <div className="flex items-center gap-2">
+          {c.status === "CLOSED" && <ReuseTicketButton caseId={c.id} />}
+          <a
+            href={`/cases/${c.id}/print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary text-xs"
+          >
+            <Printer size={13} /> Download PDF
+          </a>
+        </div>
       </div>
 
       <div className="flex items-start justify-between mt-2 mb-6 gap-4">

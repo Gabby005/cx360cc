@@ -278,6 +278,62 @@ to `NotificationLog` (viewable at `Admin → Notifications`) with
 the `console.log` line in `src/lib/notifications.ts`; nothing else in the
 app needs to change since everything already calls that one function.
 
-## 9. Getting it running
+## 9. Ticket reuse and expanded pending statuses
+
+- **Reuse ticket** — closed cases get a "Reuse this ticket" button
+  (`POST /api/cases/:id/reopen`) instead of forcing a brand-new case
+  number for the same underlying issue. Reopening keeps the original case
+  number and full history, resets `closedAt`/`resolvedAt`, and increments
+  `Case.reopenedCount` — a case reopened repeatedly is itself a useful
+  quality signal for QA/coaching later.
+- **Pending sub-statuses** — `CaseStatus` now includes `PENDING_BANK` and
+  `PENDING_THIRD_PARTY` alongside the existing `PENDING_CUSTOMER`, so a
+  case's status can reflect *who* it's actually waiting on. Every place
+  that displays or filters by status reads from one shared module
+  (`src/lib/case-status.ts` — `STATUS_LABEL`, `STATUS_PILL`,
+  `OPEN_STATUSES`) rather than each page keeping its own copy, so adding
+  a status in the future is a one-file change.
+
+## 10. Core banking read layer (simulated)
+
+`src/lib/core-banking.ts` is the seam where a real Flexcube/T24/etc.
+connection would plug in — see the extensive comment in that file for how
+a real integration typically works (SOAP/REST core-banking API, a
+scheduled sync job writing into `CustomerProduct.balance` and
+`AccountTransaction`, matched to CX360 customers via `accountRef`).
+
+No such connection exists in this environment, so `CustomerProduct` and
+`AccountTransaction` are seeded with realistic-looking fake data instead.
+The Customer 360 page lists an account's linked/sibling accounts as
+clickable pills; each opens a dedicated **read-only** account page
+(`/customers/:id/accounts/:productId`) showing balance and the last 10
+transactions, with no mutation endpoint of any kind — browsing account
+data can never affect a `Case` record, only the "Ticket properties"
+panel on the case detail page can.
+
+## 11. Branding and theme
+
+- **Dark/light mode** — a real toggle in the top bar (not just prepared
+  `dark:` classes). `src/components/theme-init.tsx` is a raw inline
+  `<script>` (not a `useEffect`) that applies the saved preference before
+  first paint, so there's no flash of the wrong theme.
+- **Per-tenant brand color** — `Tenant.brandColor` (hex) drives
+  `--brand-rgb`/`--brand-light-rgb`/`--brand-dark-rgb` CSS variables,
+  injected via a `<style>` tag in the dashboard layout and login page
+  (`src/lib/theme.ts`). Tailwind's `brand` color tokens
+  (`tailwind.config.ts`) reference these variables instead of static hex,
+  so every `bg-brand`/`text-brand`/`bg-brand/10` utility across the whole
+  app updates immediately when Admin changes the color — no rebuild.
+  Semantic status colors (`sla-ok`/`warning`/`breach`) are deliberately
+  NOT tied to brand customization, so "breach" always reads as red.
+- **Logo upload** — stored as a base64 data URI directly on
+  `Tenant.logoDataUrl`, capped at ~500KB client-side before upload. There
+  is no object storage (S3, Cloudinary, etc.) configured in this
+  environment; a production deployment serving a large logo to many users
+  should upload to real object storage and store the resulting URL
+  instead — the Admin → Branding UI and the `PATCH /api/admin/tenant`
+  endpoint wouldn't need to change, only what's stored in that field.
+
+## 12. Getting it running
 
 See `README.md` for exact setup, database, and Netlify deployment steps.

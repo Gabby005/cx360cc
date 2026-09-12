@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { SlaBadge } from "@/components/cases/sla-badge";
 import { formatDistanceToNow } from "date-fns";
+import { STATUS_LABEL } from "@/lib/case-status";
 
 export default async function CustomerDetailPage({ params }: { params: { id: string } }) {
   const ctx = await requireSession();
@@ -59,7 +60,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
                       {c.subject} <span className="font-mono text-[10px] text-ink-950/40 dark:text-surface/40">{c.caseNumber}</span>
                     </Link>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-ink-950/50 dark:text-surface/50">{c.status.replace("_", " ")}</span>
+                      <span className="text-xs text-ink-950/50 dark:text-surface/50">{STATUS_LABEL[c.status] ?? c.status}</span>
                       {c.slaPolicy && (
                         <SlaBadge createdAt={c.createdAt} respondedAt={c.respondedAt} resolvedAt={c.resolvedAt} policy={c.slaPolicy} />
                       )}
@@ -93,17 +94,27 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
 
         <div className="space-y-4">
           <section className="card p-4">
-            <h2 className="text-sm font-semibold mb-3">Products</h2>
+            <h2 className="text-sm font-semibold mb-3">Accounts</h2>
             {customer.products.length === 0 ? (
-              <p className="text-sm text-ink-950/50 dark:text-surface/50">No products on file.</p>
+              <p className="text-sm text-ink-950/50 dark:text-surface/50">No accounts on file.</p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="space-y-1 -mx-1">
                 {customer.products.map((p) => (
-                  <li key={p.id} className="text-sm">
-                    <div className="font-medium">{p.productName}</div>
-                    <div className="text-xs text-ink-950/50 dark:text-surface/50">
-                      {p.accountRef ?? "—"} · {p.status}
-                    </div>
+                  <li key={p.id}>
+                    <Link
+                      href={`/customers/${customer.id}/accounts/${p.id}`}
+                      className="flex items-center justify-between text-sm px-1 py-1.5 rounded-lg hover:bg-surface dark:hover:bg-ink-800 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{p.productName}</div>
+                        <div className="text-xs text-ink-950/50 dark:text-surface/50">{p.accountRef ?? "—"}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-mono text-xs font-medium">
+                          {p.balance != null ? `${p.currency} ${p.balance.toString()}` : "—"}
+                        </div>
+                      </div>
+                    </Link>
                   </li>
                 ))}
               </ul>

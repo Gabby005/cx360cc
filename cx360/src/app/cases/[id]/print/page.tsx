@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PrintButton } from "@/components/cases/print-button";
+import { STATUS_LABEL } from "@/lib/case-status";
 
 /**
  * A standalone, session-authenticated printable view of a case — outside
@@ -84,7 +85,7 @@ export default async function CasePrintPage({ params }: { params: { id: string }
         <tbody>
           <Row label="Customer" value={`${c.customer.firstName} ${c.customer.lastName}`} />
           <Row label="Contact" value={c.customer.email ?? c.customer.phone ?? "—"} />
-          <Row label="Status" value={c.status.replace("_", " ")} />
+          <Row label="Status" value={STATUS_LABEL[c.status] ?? c.status} />
           <Row label="Priority" value={c.priority} />
           <Row
             label="Category"
