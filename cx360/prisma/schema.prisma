@@ -342,11 +342,36 @@ model Case {
   notes       CaseNote[]
   qaReviews   QaReview[]
   feedback    FeedbackResponse[]
+  attachments CaseAttachment[]
 
   @@unique([tenantId, caseNumber])
   @@index([tenantId, status])
   @@index([tenantId, assignedToId])
   @@index([tenantId, priority, status])
+}
+
+// Files attached to a case. Stored as base64 data URIs directly on the
+// row since no object storage (S3/Cloudinary/etc.) is configured in this
+// environment — fine for a handful of reasonably small files, but a real
+// production deployment handling many/large attachments should upload to
+// real object storage and store the resulting URL here instead; nothing
+// else about this model or its API would need to change.
+model CaseAttachment {
+  id           String   @id @default(cuid())
+  tenantId     String
+  caseId       String
+  fileName     String
+  mimeType     String
+  dataUrl      String   // base64 data URI
+  sizeBytes    Int
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  tenant     Tenant @relation(fields: [tenantId], references: [id])
+  case       Case   @relation(fields: [caseId], references: [id])
+  uploadedBy User   @relation(fields: [uploadedById], references: [id])
+
+  @@index([tenantId, caseId])
 }
 
 model CaseNote {

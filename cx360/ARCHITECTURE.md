@@ -334,6 +334,40 @@ panel on the case detail page can.
   instead — the Admin → Branding UI and the `PATCH /api/admin/tenant`
   endpoint wouldn't need to change, only what's stored in that field.
 
-## 12. Getting it running
+## 12. Status-driven escalation, attachments, export, and analytics
+
+- **Status ↔ Unit coupling** — `Pending with Bank` and `Pending with 3rd
+  Party` both require selecting a `Unit`; `Pending with Customer` doesn't
+  (`statusRequiresUnit()` in `src/lib/case-status.ts`). This is enforced
+  in three places that all share the same rule: the New Case form, the
+  Inbox's convert-to-case form, and the "Ticket properties" panel on an
+  existing case (which holds the status change and prompts for a unit
+  inline rather than patching immediately, then fires the same
+  `escalateToUnit()` email as case creation does). Once a case has an
+  escalated unit, the individual "Assigned to" field is replaced with an
+  "Escalated to {unit}" line — the case is with a department, not a
+  person, until that's cleared.
+- **Attachments** — `CaseAttachment` model, same "no object storage
+  configured" caveat as the branding logo (base64 on the row, capped at
+  ~3MB/file). Images preview inline, PDFs render in an iframe, anything
+  else gets a download link. Any authenticated user can upload; only the
+  uploader or a Supervisor/Admin can delete.
+- **CSV export** — `src/components/cases/cases-table.tsx` builds the CSV
+  entirely client-side from whatever's already loaded (checkbox selection
+  or, if nothing's selected, everything currently in view). No export API
+  route — the data's already on the page. The Cases list also gained a
+  date-range filter (`from`/`to` query params on `createdAt`).
+- **Workflows is Supervisor/Admin-only** — hidden from the sidebar for
+  Agents, the page itself redirects them, and the underlying `GET
+  /api/workflows` now requires Supervisor+ too, so there's no path to it
+  at any layer for an Agent.
+- **Analytics** — real charts (via `recharts`): a 14-day created-vs-resolved
+  volume trend, a 14-day SLA compliance trend, status/priority breakdowns,
+  and a "Top drivers" panel (most common `CaseCode` category per
+  interaction type, last 30 days). The Agent Workspace gets a personal,
+  same-day version of that last panel ("Today's top drivers") scoped to
+  that agent's own cases.
+
+## 13. Getting it running
 
 See `README.md` for exact setup, database, and Netlify deployment steps.

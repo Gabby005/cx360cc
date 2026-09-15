@@ -1,6 +1,7 @@
-import { Prisma, PrismaClient, CaseType, Priority } from "@prisma/client";
+import { Prisma, PrismaClient, CaseType, Priority, CaseStatus } from "@prisma/client";
 import { ApiError } from "./tenant";
 import { notifyCustomer, sendNotification } from "./notifications";
+import { statusRequiresUnit } from "./case-status";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -26,10 +27,12 @@ export type CreateCaseInput = {
   category?: string;
   /** Resolves to an approved CaseCode row; its `code` becomes part of the case number. */
   caseCodeId?: string;
+  /** Defaults to NEW. Choosing PENDING_BANK/PENDING_THIRD_PARTY requires escalatedUnitId. */
+  status?: CaseStatus;
   isTransactional?: boolean;
   transactionAmount?: number;
   transactionCurrency?: string;
-  /** If set (and isTransactional is true), fires an escalation email to that Unit on creation. */
+  /** Required if status is PENDING_BANK/PENDING_THIRD_PARTY; optional otherwise (e.g. a transactional case that just wants a unit informed). */
   escalatedUnitId?: string;
   queueId?: string;
   /** Who created this case, for the audit trail. Omitted for API-key-created cases. */
@@ -90,17 +93,56 @@ export async function logCaseActivity(
 }
 
 /**
+ * Validates a Unit and sends the escalation email — shared by case
+ * creation (when a status or the transactional flag calls for a unit)
+ * and by the PATCH route (when an existing case's status changes to
+ * something that requires one). One place, so the notification content
+ * and the "must be active" check never drift between the two call sites.
+ */
+export async function escalateToUnit(
+  tx: Tx,
+  params: { tenantId: string; unitId: string; caseId: string; caseNumber: string; subject: string; customerName: string }
+) {
+  const unit = await tx.unit.findFirst({ where: { id: params.unitId, tenantId: params.tenantId, active: true } });
+  if (!unit) {
+    throw new ApiError(400, "Selected escalation unit was not found or is inactive.");
+  }
+
+  await tx.case.update({
+    where: { id: params.caseId },
+    data: { escalatedUnitId: unit.id, escalatedAt: new Date() },
+  });
+
+  await sendNotification(tx, {
+    tenantId: params.tenantId,
+    channel: "email",
+    to: unit.email,
+    subject: `Case escalated to ${unit.name}: ${params.caseNumber}`,
+    message: `A case has been escalated to ${unit.name}.\n\nCase: ${params.caseNumber}\nSubject: ${params.subject}\nCustomer: ${params.customerName}`,
+    relatedCaseId: params.caseId,
+  });
+
+  return unit;
+}
+
+/**
  * Creates a Case with its case number and SLA clock stamped at creation
  * time, writes the corresponding domain event, logs the creation to the
  * audit trail, notifies the customer their ticket was opened (email +
- * SMS via src/lib/notifications.ts), and — if this is a transactional
- * case with a Unit selected — fires an escalation email to that unit.
- * This is the single place all of this logic lives, so every entry point
- * that can create a case (the Cases API, the New Case form, the Inbox's
- * "convert to case" action, and the external v1 API) gets identical
- * behavior for free.
+ * SMS via src/lib/notifications.ts), and — if a Unit was selected (either
+ * because the case is transactional or because the chosen initial status
+ * requires one) — fires an escalation email to that unit. This is the
+ * single place all of this logic lives, so every entry point that can
+ * create a case (the Cases API, the New Case form, the Inbox's "convert
+ * to case" action, and the external v1 API) gets identical behavior.
  */
 export async function createCase(tx: Tx, input: CreateCaseInput) {
+  const status = input.status ?? "NEW";
+
+  if (statusRequiresUnit(status) && !input.escalatedUnitId) {
+    throw new ApiError(400, `Status "${status.replace(/_/g, " ")}" requires selecting a unit.`);
+  }
+
   let codeSegment = "GEN";
   if (input.caseCodeId) {
     const caseCode = await tx.caseCode.findFirst({ where: { id: input.caseCodeId, tenantId: input.tenantId } });
@@ -119,14 +161,6 @@ export async function createCase(tx: Tx, input: CreateCaseInput) {
     codeSegment = caseCode.code;
   }
 
-  let unit: { id: string; name: string; email: string } | null = null;
-  if (input.isTransactional && input.escalatedUnitId) {
-    unit = await tx.unit.findFirst({ where: { id: input.escalatedUnitId, tenantId: input.tenantId, active: true } });
-    if (!unit) {
-      throw new ApiError(400, "Selected escalation unit was not found or is inactive.");
-    }
-  }
-
   const [policy, caseNumber, customer] = await Promise.all([
     tx.slaPolicy.findUnique({
       where: { tenantId_priority: { tenantId: input.tenantId, priority: input.priority } },
@@ -143,6 +177,7 @@ export async function createCase(tx: Tx, input: CreateCaseInput) {
       customerId: input.customerId,
       type: input.type,
       priority: input.priority,
+      status,
       subject: input.subject,
       description: input.description,
       category: input.category,
@@ -150,8 +185,6 @@ export async function createCase(tx: Tx, input: CreateCaseInput) {
       isTransactional: input.isTransactional ?? false,
       transactionAmount: input.transactionAmount,
       transactionCurrency: input.transactionCurrency,
-      escalatedUnitId: unit?.id,
-      escalatedAt: unit ? now : undefined,
       queueId: input.queueId,
       slaPolicyId: policy?.id,
       responseDueAt: policy ? new Date(now.getTime() + policy.responseMinutes * 60_000) : null,
@@ -186,14 +219,14 @@ export async function createCase(tx: Tx, input: CreateCaseInput) {
     });
   }
 
-  if (unit) {
-    await sendNotification(tx, {
+  if (input.escalatedUnitId) {
+    await escalateToUnit(tx, {
       tenantId: input.tenantId,
-      channel: "email",
-      to: unit.email,
-      subject: `Transactional case escalated: ${newCase.caseNumber}`,
-      message: `A transactional case has been escalated to ${unit.name}.\n\nCase: ${newCase.caseNumber}\nSubject: ${newCase.subject}\nAmount: ${input.transactionCurrency ?? ""} ${input.transactionAmount ?? "—"}\nCustomer: ${customer?.firstName ?? ""} ${customer?.lastName ?? ""}`,
-      relatedCaseId: newCase.id,
+      unitId: input.escalatedUnitId,
+      caseId: newCase.id,
+      caseNumber: newCase.caseNumber,
+      subject: newCase.subject,
+      customerName: customer ? `${customer.firstName} ${customer.lastName}` : "Unknown",
     });
   }
 

@@ -73,14 +73,18 @@ export function TransactionalToggle({
 /**
  * Unit escalation select — only rendered (and only fetches /api/units)
  * when isTransactional is true. Placed after the comment field in every
- * case-creation form.
+ * case-creation form. Shows whenever the case is transactional (optional
+ * unit there) OR the chosen status requires one (mandatory — e.g. Pending
+ * with Bank / Pending with 3rd Party).
  */
 export function UnitEscalationField({
-  isTransactional,
+  visible,
+  required,
   unitId,
   onUnitChange,
 }: {
-  isTransactional: boolean;
+  visible: boolean;
+  required: boolean;
   unitId: string;
   onUnitChange: (v: string) => void;
 }) {
@@ -88,23 +92,25 @@ export function UnitEscalationField({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!isTransactional || units.length > 0) return;
+    if (!visible || units.length > 0) return;
     setLoading(true);
     fetch("/api/units")
       .then((r) => r.json())
       .then((data) => setUnits(data.units ?? []))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTransactional]);
+  }, [visible]);
 
-  if (!isTransactional) return null;
+  if (!visible) return null;
 
   return (
     <div>
-      <label className="block text-xs font-medium mb-1">Escalate to unit (optional)</label>
+      <label className="block text-xs font-medium mb-1">
+        Escalate to unit {required ? <span className="text-sla-breach">*</span> : "(optional)"}
+      </label>
       <select value={unitId} onChange={(e) => onUnitChange(e.target.value)} disabled={loading} className="input">
         <option value="">
-          {loading ? "Loading…" : units.length === 0 ? "No units set up yet" : "No escalation needed"}
+          {loading ? "Loading…" : units.length === 0 ? "No units set up yet" : required ? "Select unit…" : "No escalation needed"}
         </option>
         {units.map((u) => (
           <option key={u.id} value={u.id}>

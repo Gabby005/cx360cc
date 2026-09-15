@@ -7,6 +7,7 @@ import { CaseActions } from "@/components/cases/case-actions";
 import { QaReviewPanel } from "@/components/cases/qa-review-panel";
 import { ReuseTicketButton } from "@/components/cases/reuse-ticket-button";
 import { CaseTimeline } from "@/components/cases/case-timeline";
+import { AttachmentsPanel } from "@/components/cases/attachments-panel";
 import { formatDistanceToNow } from "date-fns";
 import { Phone, Mail, MessageSquare, Printer } from "lucide-react";
 
@@ -32,12 +33,13 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
       caseCode: true,
       escalatedUnit: true,
       interactions: { orderBy: { createdAt: "desc" } },
+      attachments: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { name: true } } } },
     },
   });
 
   if (!c) notFound();
 
-  const [agents, notes, activity] = await Promise.all([
+  const [agents, notes, activity, units] = await Promise.all([
     prisma.user.findMany({
       where: { memberships: { some: { tenantId: ctx.tenantId } } },
       select: { id: true, name: true },
@@ -50,6 +52,11 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
     prisma.auditLog.findMany({
       where: { tenantId: ctx.tenantId, entity: "Case", entityId: c.id },
       orderBy: { createdAt: "desc" },
+    }),
+    prisma.unit.findMany({
+      where: { tenantId: ctx.tenantId, active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true },
     }),
   ]);
 
@@ -177,6 +184,13 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
             )}
           </div>
 
+          <AttachmentsPanel
+            caseId={c.id}
+            initialAttachments={JSON.parse(JSON.stringify(c.attachments))}
+            currentUserId={ctx.userId}
+            canManageOthers={canReviewQa}
+          />
+
           <CaseTimeline caseId={c.id} items={timelineItems} />
         </div>
 
@@ -237,6 +251,9 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
             agents={agents}
             currentUserId={ctx.userId}
             canReassignOthers={canReviewQa}
+            escalatedUnitId={c.escalatedUnitId}
+            escalatedUnitName={c.escalatedUnit?.name ?? null}
+            units={units}
           />
 
           {(canReviewQa || qaReviews.length > 0) && (

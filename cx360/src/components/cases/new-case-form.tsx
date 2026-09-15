@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { CaseCodeSelect } from "@/components/cases/case-code-select";
 import { TransactionalToggle, UnitEscalationField } from "@/components/cases/transactional-fields";
+import { CASE_STATUSES, STATUS_LABEL, statusRequiresUnit } from "@/lib/case-status";
 
 type Customer = { id: string; firstName: string; lastName: string; email: string | null; phone: string | null };
 
@@ -15,6 +16,7 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
   const [description, setDescription] = useState("");
   const [type, setType] = useState("SERVICE_REQUEST");
   const [priority, setPriority] = useState("MEDIUM");
+  const [status, setStatus] = useState("NEW");
   const [caseCodeId, setCaseCodeId] = useState("");
   const [isTransactional, setIsTransactional] = useState(false);
   const [amount, setAmount] = useState("");
@@ -22,6 +24,9 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
   const [unitId, setUnitId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const unitRequired = statusRequiresUnit(status);
+  const unitFieldVisible = isTransactional || unitRequired;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,6 +37,9 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
     if (isTransactional && (!amount || !currency)) {
       return setError("Amount and currency are required for a transactional case.");
     }
+    if (unitRequired && !unitId) {
+      return setError(`Status "${STATUS_LABEL[status]}" requires selecting a unit.`);
+    }
 
     setSaving(true);
     const res = await fetch("/api/cases", {
@@ -41,13 +49,14 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
         customerId: customer.id,
         type,
         priority,
+        status,
         subject,
         description,
         caseCodeId: caseCodeId || undefined,
         isTransactional,
         transactionAmount: isTransactional ? Number(amount) : undefined,
         transactionCurrency: isTransactional ? currency : undefined,
-        escalatedUnitId: isTransactional && unitId ? unitId : undefined,
+        escalatedUnitId: unitFieldVisible && unitId ? unitId : undefined,
       }),
     });
     setSaving(false);
@@ -112,6 +121,24 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
         </div>
       </div>
 
+      <div>
+        <label className="block text-xs font-medium mb-1">Status</label>
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            if (!statusRequiresUnit(e.target.value)) setUnitId("");
+          }}
+          className="input"
+        >
+          {CASE_STATUSES.filter((s) => s !== "CLOSED").map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABEL[s]}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <CaseCodeSelect type={type} value={caseCodeId} onChange={setCaseCodeId} />
       </div>
@@ -148,7 +175,7 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
         />
       </div>
 
-      <UnitEscalationField isTransactional={isTransactional} unitId={unitId} onUnitChange={setUnitId} />
+      <UnitEscalationField visible={unitFieldVisible} required={unitRequired} unitId={unitId} onUnitChange={setUnitId} />
 
       {error && <p className="text-sm text-sla-breach">{error}</p>}
 

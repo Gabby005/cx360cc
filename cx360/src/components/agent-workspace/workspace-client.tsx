@@ -43,12 +43,16 @@ const PRIORITY_PILL: Record<string, string> = {
   LOW: "pill-neutral",
 };
 
+type Driver = { category: string; count: number } | null;
+
 export function AgentWorkspaceClient({
   cases,
   articles,
+  topDriversToday,
 }: {
   cases: CaseItem[];
   articles: { id: string; title: string; category: string | null }[];
+  topDriversToday: { COMPLAINT: Driver; SERVICE_REQUEST: Driver; INQUIRY: Driver };
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(cases[0]?.id ?? null);
   const selected = cases.find((c) => c.id === selectedId) ?? null;
@@ -174,6 +178,15 @@ export function AgentWorkspaceClient({
       {/* Context / recommended actions pane */}
       <div className="bg-surface-raised dark:bg-ink-900 border-l border-line-light dark:border-line-dark overflow-y-auto p-4 hidden lg:block">
         <h3 className="text-xs font-semibold text-ink-950/50 dark:text-surface/50 mb-2.5 tracking-wide">
+          Today's top drivers
+        </h3>
+        <div className="card p-3 mb-6 space-y-2">
+          <DriverRow label="Complaint" driver={topDriversToday.COMPLAINT} />
+          <DriverRow label="Request" driver={topDriversToday.SERVICE_REQUEST} />
+          <DriverRow label="Enquiry" driver={topDriversToday.INQUIRY} />
+        </div>
+
+        <h3 className="text-xs font-semibold text-ink-950/50 dark:text-surface/50 mb-2.5 tracking-wide">
           Suggested knowledge
         </h3>
         {articles.length === 0 ? (
@@ -207,6 +220,21 @@ export function AgentWorkspaceClient({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function DriverRow({ label, driver }: { label: string; driver: Driver }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-ink-950/50 dark:text-surface/50">{label}</span>
+      {driver ? (
+        <span className="font-medium text-right truncate max-w-[60%]">
+          {driver.category} <span className="text-ink-950/40 dark:text-surface/40 font-mono">({driver.count})</span>
+        </span>
+      ) : (
+        <span className="text-ink-950/30 dark:text-surface/30">None yet today</span>
+      )}
     </div>
   );
 }

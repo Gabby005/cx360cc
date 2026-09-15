@@ -3,7 +3,8 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
-import { logCaseActivity, notifyCaseClosed } from "@/lib/case-service";
+import { logCaseActivity, notifyCaseClosed, escalateToUnit } from "@/lib/case-service";
+import { statusRequiresUnit } from "@/lib/case-status";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -31,6 +32,7 @@ const patchSchema = z.object({
     .optional(),
   assignedToId: z.string().nullable().optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
+  escalatedUnitId: z.string().optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -58,8 +60,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       throw new ApiError(403, "Only supervisors or admins can assign a case to another agent");
     }
 
+    // Pending with Bank / Pending with 3rd Party both mean the case now
+    // sits with an external unit — require one to be selected (either in
+    // this request or already on the case) before allowing the status
+    // change through.
+    const targetStatus = body.status ?? existing.status;
+    const targetUnitId = body.escalatedUnitId ?? existing.escalatedUnitId;
+    if (statusRequiresUnit(targetStatus) && !targetUnitId) {
+      throw new ApiError(400, `Status "${targetStatus.replace(/_/g, " ")}" requires selecting a unit.`);
+    }
+
     const now = new Date();
-    const data: Record<string, unknown> = { ...body };
+    const { escalatedUnitId, ...patchFields } = body;
+    const data: Record<string, unknown> = { ...patchFields };
 
     // First response/resolution timestamps drive the SLA clock stage
     // transitions — stamp them the moment status implies the milestone.
@@ -130,6 +143,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
       if (body.status === "CLOSED" && existing.status !== "CLOSED") {
         await notifyCaseClosed(tx, ctx.tenantId, existing.id);
+      }
+
+      // A new unit selection (different from what's already on the case)
+      // triggers the escalation email — whether it came from a status
+      // change requiring one, or was set some other way.
+      if (body.escalatedUnitId && body.escalatedUnitId !== existing.escalatedUnitId) {
+        const customer = await tx.customer.findUnique({ where: { id: existing.customerId } });
+        await escalateToUnit(tx, {
+          tenantId: ctx.tenantId,
+          unitId: body.escalatedUnitId,
+          caseId: existing.id,
+          caseNumber: existing.caseNumber,
+          subject: existing.subject,
+          customerName: customer ? `${customer.firstName} ${customer.lastName}` : "Unknown",
+        });
       }
 
       return u;

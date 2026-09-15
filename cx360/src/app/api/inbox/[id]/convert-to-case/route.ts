@@ -3,14 +3,17 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
 import { createCase } from "@/lib/case-service";
+import { statusRequiresUnit } from "@/lib/case-status";
 
 const CURRENCIES = ["NGN", "USD", "GBP", "EUR"] as const;
+const STATUSES = ["NEW", "OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY", "ESCALATED", "RESOLVED"] as const;
 
 const schema = z
   .object({
     subject: z.string().min(1),
     type: z.enum(["SERVICE_REQUEST", "COMPLAINT", "INQUIRY", "INCIDENT"]).default("SERVICE_REQUEST"),
     priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"),
+    status: z.enum(STATUSES).default("NEW"),
     description: z.string().min(1, "A comment/description is required for every case."),
     category: z.string().optional(),
     caseCodeId: z.string().optional(),
@@ -22,6 +25,10 @@ const schema = z
   .refine((data) => !data.isTransactional || (data.transactionAmount && data.transactionCurrency), {
     message: "Amount and currency are required for a transactional case.",
     path: ["transactionAmount"],
+  })
+  .refine((data) => !statusRequiresUnit(data.status) || data.escalatedUnitId, {
+    message: "This status requires selecting a unit.",
+    path: ["escalatedUnitId"],
   });
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -41,6 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         customerId: interaction.customerId,
         type: body.type,
         priority: body.priority,
+        status: body.status,
         subject: body.subject,
         description: body.description,
         category: body.category,

@@ -26,10 +26,37 @@ export default async function AgentWorkspacePage() {
     select: { id: true, title: true, category: true },
   });
 
+  // "Today's top driver" per interaction type, for this agent specifically
+  // — the most common category among cases assigned to them, created
+  // today. A tighter, personal version of the tenant-wide "Top drivers"
+  // panel on the Analytics page.
+  const startOfDay = new Date(new Date().setHours(0, 0, 0, 0));
+  const todaysCases = await prisma.case.findMany({
+    where: { tenantId: ctx.tenantId, assignedToId: ctx.userId, createdAt: { gte: startOfDay }, caseCodeId: { not: null } },
+    select: { type: true, caseCode: { select: { category: true } } },
+  });
+
+  function topDriverFor(type: "COMPLAINT" | "SERVICE_REQUEST" | "INQUIRY") {
+    const counts = new Map<string, number>();
+    for (const c of todaysCases) {
+      if (c.type !== type || !c.caseCode) continue;
+      counts.set(c.caseCode.category, (counts.get(c.caseCode.category) ?? 0) + 1);
+    }
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+    return top ? { category: top[0], count: top[1] } : null;
+  }
+
+  const topDriversToday = {
+    COMPLAINT: topDriverFor("COMPLAINT"),
+    SERVICE_REQUEST: topDriverFor("SERVICE_REQUEST"),
+    INQUIRY: topDriverFor("INQUIRY"),
+  };
+
   return (
     <AgentWorkspaceClient
       cases={JSON.parse(JSON.stringify(myCases))}
       articles={relevantArticles}
+      topDriversToday={topDriversToday}
     />
   );
 }

@@ -24,7 +24,7 @@ const ITEMS = [
   { href: "/customers", icon: Users, label: "Customers" },
   { href: "/performance", icon: Award, label: "My performance" },
   { href: "/knowledge", icon: BookOpen, label: "Knowledge base" },
-  { href: "/workflows", icon: Workflow, label: "Workflows" },
+  { href: "/workflows", icon: Workflow, label: "Workflows", restrictedTo: ["SUPERVISOR", "ADMIN"] },
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
 ] as const;
 
@@ -38,6 +38,7 @@ export function NavRail({
   logoDataUrl?: string | null;
 }) {
   const pathname = usePathname();
+  const visibleItems = ITEMS.filter((item) => !("restrictedTo" in item) || (item.restrictedTo as readonly string[]).includes(role));
 
   return (
     <nav
@@ -60,7 +61,7 @@ export function NavRail({
       </div>
 
       <div className="flex-1 px-2 space-y-0.5">
-        {ITEMS.map(({ href, icon: Icon, label }) => {
+        {visibleItems.map(({ href, icon: Icon, label }) => {
           const active = pathname?.startsWith(href);
           return (
             <Link

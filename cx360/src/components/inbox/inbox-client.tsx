@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Phone, Mail, MessageSquare, Plus, Send } from "lucide-react";
 import { CaseCodeSelect } from "@/components/cases/case-code-select";
 import { TransactionalToggle, UnitEscalationField } from "@/components/cases/transactional-fields";
+import { CASE_STATUSES, STATUS_LABEL, statusRequiresUnit } from "@/lib/case-status";
 
 const CHANNELS = ["VOICE", "EMAIL", "SMS", "WHATSAPP", "CHAT", "PORTAL", "SOCIAL"] as const;
 const CHANNEL_ICON: Record<string, typeof Phone> = {
@@ -317,6 +318,7 @@ function ConvertToCaseForm({
   const [comment, setComment] = useState(defaultComment);
   const [type, setType] = useState("SERVICE_REQUEST");
   const [priority, setPriority] = useState("MEDIUM");
+  const [status, setStatus] = useState("NEW");
   const [caseCodeId, setCaseCodeId] = useState("");
   const [isTransactional, setIsTransactional] = useState(false);
   const [amount, setAmount] = useState("");
@@ -325,12 +327,18 @@ function ConvertToCaseForm({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const unitRequired = statusRequiresUnit(status);
+  const unitFieldVisible = isTransactional || unitRequired;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!comment.trim()) return setError("A comment/description is required for every case.");
     if (isTransactional && (!amount || !currency)) {
       return setError("Amount and currency are required for a transactional case.");
+    }
+    if (unitRequired && !unitId) {
+      return setError(`Status "${STATUS_LABEL[status]}" requires selecting a unit.`);
     }
 
     setSaving(true);
@@ -341,12 +349,13 @@ function ConvertToCaseForm({
         subject,
         type,
         priority,
+        status,
         description: comment,
         caseCodeId: caseCodeId || undefined,
         isTransactional,
         transactionAmount: isTransactional ? Number(amount) : undefined,
         transactionCurrency: isTransactional ? currency : undefined,
-        escalatedUnitId: isTransactional && unitId ? unitId : undefined,
+        escalatedUnitId: unitFieldVisible && unitId ? unitId : undefined,
       }),
     });
     setSaving(false);
@@ -386,6 +395,24 @@ function ConvertToCaseForm({
         </select>
       </div>
 
+      <div>
+        <label className="block text-xs font-medium mb-1">Status</label>
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            if (!statusRequiresUnit(e.target.value)) setUnitId("");
+          }}
+          className="input"
+        >
+          {CASE_STATUSES.filter((s) => s !== "CLOSED").map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABEL[s]}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <CaseCodeSelect type={type} value={caseCodeId} onChange={setCaseCodeId} />
 
       <TransactionalToggle
@@ -409,7 +436,7 @@ function ConvertToCaseForm({
         />
       </div>
 
-      <UnitEscalationField isTransactional={isTransactional} unitId={unitId} onUnitChange={setUnitId} />
+      <UnitEscalationField visible={unitFieldVisible} required={unitRequired} unitId={unitId} onUnitChange={setUnitId} />
 
       {error && <p className="text-xs text-sla-breach">{error}</p>}
       <button type="submit" disabled={saving || !subject.trim()} className="btn-primary w-full text-sm">

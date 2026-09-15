@@ -37,6 +37,7 @@ const createSchema = z.object({
 export async function GET() {
   try {
     const ctx = await requireSession();
+    requirePermission(ctx, "SUPERVISOR");
     const rules = await prisma.workflowRule.findMany({
       where: { tenantId: ctx.tenantId },
       orderBy: { createdAt: "desc" },

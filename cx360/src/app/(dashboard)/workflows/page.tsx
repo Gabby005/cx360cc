@@ -1,9 +1,11 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { WorkflowsClient } from "@/components/workflows/workflows-client";
 
 export default async function WorkflowsPage() {
   const ctx = await requireSession();
+  if (ctx.role !== "SUPERVISOR" && ctx.role !== "ADMIN") redirect("/dashboard");
 
   const rules = await prisma.workflowRule.findMany({
     where: { tenantId: ctx.tenantId },
