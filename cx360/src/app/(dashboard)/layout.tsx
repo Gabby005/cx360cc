@@ -7,6 +7,8 @@ import { NavRail } from "@/components/layout/nav-rail";
 import { TopBar } from "@/components/layout/top-bar";
 import { ThemeInit } from "@/components/theme-init";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/login");

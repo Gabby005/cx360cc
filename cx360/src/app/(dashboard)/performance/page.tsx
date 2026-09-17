@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 
+export const dynamic = "force-dynamic";
+
 export default async function PerformancePage() {
   const ctx = await requireSession();
   const startOfDay = new Date(new Date().setHours(0, 0, 0, 0));

@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { PrintButton } from "@/components/cases/print-button";
 import { STATUS_LABEL } from "@/lib/case-status";
 
+export const dynamic = "force-dynamic";
+
 /**
  * A standalone, session-authenticated printable view of a case — outside
  * the (dashboard) route group, so it renders with none of the app's

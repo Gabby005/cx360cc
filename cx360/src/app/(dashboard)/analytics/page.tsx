@@ -3,6 +3,8 @@ import { requireSession } from "@/lib/tenant";
 import { STATUS_LABEL } from "@/lib/case-status";
 import { AnalyticsCharts } from "@/components/analytics/analytics-charts";
 
+export const dynamic = "force-dynamic";
+
 const DAYS = 14;
 const DRIVER_DAYS = 30;
 

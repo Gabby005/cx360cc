@@ -3,6 +3,8 @@ import { Search } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 
+export const dynamic = "force-dynamic";
+
 const PAGE_SIZE = 24;
 
 export default async function CustomersPage({ searchParams }: { searchParams: { q?: string; page?: string } }) {

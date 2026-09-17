@@ -5,6 +5,8 @@ import { requireSession } from "@/lib/tenant";
 import { ArrowRight } from "lucide-react";
 import { CaseNumberPrefixEditor } from "@/components/admin/case-number-prefix-editor";
 
+export const dynamic = "force-dynamic";
+
 const PRIORITY_PILL: Record<string, string> = {
   CRITICAL: "pill-breach",
   HIGH: "pill-warning",

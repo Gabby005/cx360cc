@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { NewCaseForm } from "@/components/cases/new-case-form";
 
+export const dynamic = "force-dynamic";
+
 export default async function NewCasePage({ searchParams }: { searchParams: { customerId?: string } }) {
   const ctx = await requireSession();
 

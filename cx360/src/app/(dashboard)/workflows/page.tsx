@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { WorkflowsClient } from "@/components/workflows/workflows-client";
 
+export const dynamic = "force-dynamic";
+
 export default async function WorkflowsPage() {
   const ctx = await requireSession();
   if (ctx.role !== "SUPERVISOR" && ctx.role !== "ADMIN") redirect("/dashboard");

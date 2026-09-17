@@ -7,6 +7,8 @@ import { SlaBadge } from "@/components/cases/sla-badge";
 import { formatDistanceToNow } from "date-fns";
 import { STATUS_LABEL } from "@/lib/case-status";
 
+export const dynamic = "force-dynamic";
+
 export default async function CustomerDetailPage({ params }: { params: { id: string } }) {
   const ctx = await requireSession();
 

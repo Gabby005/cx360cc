@@ -3,6 +3,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 
+export const dynamic = "force-dynamic";
+
 export default async function NotificationsPage() {
   const ctx = await requireSession();
   if (ctx.role !== "ADMIN") redirect("/dashboard");
