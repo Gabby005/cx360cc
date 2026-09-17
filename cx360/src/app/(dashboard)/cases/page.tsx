@@ -6,6 +6,8 @@ import { BatchCloseButton } from "@/components/cases/batch-close-button";
 import { CasesTable } from "@/components/cases/cases-table";
 import { STATUS_LABEL } from "@/lib/case-status";
 
+export const dynamic = "force-dynamic";
+
 export default async function CasesPage({
   searchParams,
 }: {
