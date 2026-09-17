@@ -11,8 +11,6 @@ import { AttachmentsPanel } from "@/components/cases/attachments-panel";
 import { formatDistanceToNow } from "date-fns";
 import { Phone, Mail, MessageSquare, Printer } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
 const CHANNEL_ICON: Record<string, typeof Phone> = {
   VOICE: Phone,
   EMAIL: Mail,
