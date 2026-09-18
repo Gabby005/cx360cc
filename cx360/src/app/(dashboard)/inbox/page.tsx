@@ -2,8 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { InboxClient } from "@/components/inbox/inbox-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function InboxPage() {
   const ctx = await requireSession();
 

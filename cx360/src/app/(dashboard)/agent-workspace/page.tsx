@@ -2,8 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { AgentWorkspaceClient } from "@/components/agent-workspace/workspace-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function AgentWorkspacePage() {
   const ctx = await requireSession();
 

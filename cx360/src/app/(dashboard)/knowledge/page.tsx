@@ -1,8 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 
-export const dynamic = "force-dynamic";
-
 export default async function KnowledgePage() {
   const ctx = await requireSession();
   const articles = await prisma.knowledgeArticle.findMany({

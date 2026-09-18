@@ -4,8 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { CaseCodesClient } from "@/components/admin/case-codes-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function CaseCodesPage() {
   const ctx = await requireSession();
   if (ctx.role !== "ADMIN") redirect("/dashboard");

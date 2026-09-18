@@ -4,8 +4,6 @@ import { computeSlaClock } from "@/lib/sla";
 import Link from "next/link";
 import { Inbox, CheckCircle2, AlertTriangle } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
 export default async function DashboardPage() {
   const ctx = await requireSession();
 

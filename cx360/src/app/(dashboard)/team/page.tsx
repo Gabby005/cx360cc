@@ -3,8 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { TeamQueueClient } from "@/components/team/team-queue-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function TeamPage() {
   const ctx = await requireSession();
   if (ctx.role !== "SUPERVISOR" && ctx.role !== "ADMIN") redirect("/dashboard");

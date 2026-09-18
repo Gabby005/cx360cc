@@ -32,7 +32,6 @@ model Tenant {
   units        Unit[]
   notificationLogs NotificationLog[]
   accountTransactions AccountTransaction[]
-  caseAttachments CaseAttachment[]
   slaPolicies  SlaPolicy[]
   queues       Queue[]
   teams        Team[]
@@ -60,7 +59,6 @@ model User {
   qaReviewsGiven    QaReview[]       @relation("Reviewer")
   qaReviewsReceived QaReview[]       @relation("ReviewedAgent")
   caseNotes         CaseNote[]
-  uploadedAttachments CaseAttachment[]
 }
 
 enum Role {

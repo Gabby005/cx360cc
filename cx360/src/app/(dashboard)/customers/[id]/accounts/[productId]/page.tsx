@@ -5,8 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { getAccountsForCustomer, getRecentTransactions } from "@/lib/core-banking";
 
-export const dynamic = "force-dynamic";
-
 /**
  * Read-only account view — deliberately has no form, no mutation
  * endpoint, no write path of any kind. Browsing balances/transactions

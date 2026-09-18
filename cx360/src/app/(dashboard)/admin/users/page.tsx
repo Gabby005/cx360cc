@@ -4,8 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { UsersClient } from "@/components/admin/users-client";
 
-export const dynamic = "force-dynamic";
-
 export default async function AdminUsersPage() {
   const ctx = await requireSession();
   if (ctx.role !== "ADMIN") redirect("/dashboard");
