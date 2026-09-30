@@ -2,6 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { buildBrandStyleTag } from "@/lib/theme";
 import { LoginForm } from "@/components/auth/login-form";
 
+// Render per request so `next build` needs no database connection.
+export const dynamic = "force-dynamic";
+
 export default async function LoginPage() {
   // This app is deployed single-tenant-per-instance (one bank per Netlify
   // site), so there's no session yet to resolve a tenant from — take the
