@@ -94,7 +94,7 @@ export async function logCaseActivity(
 
 /**
  * Validates a Unit and sends the escalation email — shared by case
- * creation (when a status or the transactional flag calls for a unit)
+ * creation (whenever a unit is chosen — any case, transactional or not)
  * and by the PATCH route (when an existing case's status changes to
  * something that requires one). One place, so the notification content
  * and the "must be active" check never drift between the two call sites.

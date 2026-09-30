@@ -228,12 +228,20 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
                     {c.transactionCurrency} {c.transactionAmount?.toString()}
                   </span>
                 </div>
-                {c.escalatedUnit && (
-                  <div className="flex justify-between items-start gap-2">
-                    <span className="text-ink-950/50 dark:text-surface/50 shrink-0">Escalated to</span>
-                    <span className="text-right">{c.escalatedUnit.name}</span>
-                  </div>
-                )}
+              </div>
+            </div>
+          )}
+
+          {c.escalatedUnit && (
+            <div className="card p-4">
+              <h2 className="text-xs font-semibold text-ink-950/50 dark:text-surface/50 tracking-wide mb-3">
+                Escalation
+              </h2>
+              <div className="text-sm space-y-1.5">
+                <div className="flex justify-between items-start gap-2">
+                  <span className="text-ink-950/50 dark:text-surface/50 shrink-0">Escalated to</span>
+                  <span className="text-right">{c.escalatedUnit.name}</span>
+                </div>
                 {c.escalatedAt && (
                   <p className="text-xs text-ink-950/40 dark:text-surface/40 pt-1">
                     Escalation email sent {formatDistanceToNow(c.escalatedAt, { addSuffix: true })}

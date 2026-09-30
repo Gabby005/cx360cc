@@ -26,6 +26,7 @@ type VolumePoint = { date: string; created: number; resolved: number };
 type SlaPoint = { date: string; complianceRate: number };
 type BreakdownItem = { label: string; count: number };
 type DriverItem = { category: string; count: number };
+type DepartmentItem = { name: string; open: number; closed: number };
 
 export function AnalyticsCharts({
   volumeTrend,
@@ -33,15 +34,18 @@ export function AnalyticsCharts({
   statusBreakdown,
   priorityBreakdown,
   topDrivers,
+  departmentStats,
 }: {
   volumeTrend: VolumePoint[];
   slaTrend: SlaPoint[];
   statusBreakdown: BreakdownItem[];
   priorityBreakdown: BreakdownItem[];
   topDrivers: { COMPLAINT: DriverItem[]; SERVICE_REQUEST: DriverItem[]; INQUIRY: DriverItem[] };
+  departmentStats: DepartmentItem[];
 }) {
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
       <div className="card p-5">
         <h2 className="text-sm font-semibold mb-1">Case volume trend</h2>
         <p className="text-xs text-ink-950/50 dark:text-surface/50 mb-4">Created vs resolved, last 14 days</p>
@@ -74,7 +78,57 @@ export function AnalyticsCharts({
         </ResponsiveContainer>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      </div>
+
+      <div className="card p-5">
+        <h2 className="text-sm font-semibold mb-1">Tickets per department</h2>
+        <p className="text-xs text-ink-950/50 dark:text-surface/50 mb-4">
+          Open vs closed, by the unit each case is escalated to. Closed includes resolved cases.
+        </p>
+        {departmentStats.length === 0 ? (
+          <p className="text-xs text-ink-950/40 dark:text-surface/40">No departments or cases yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+            <div className="xl:col-span-3">
+              <ResponsiveContainer width="100%" height={Math.max(220, departmentStats.length * 44)}>
+                <BarChart data={departmentStats} layout="vertical" margin={{ left: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11 }} stroke="currentColor" opacity={0.5} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="currentColor" opacity={0.7} width={140} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="open" name="Open" fill={COLORS.warning} radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="closed" name="Closed" fill={COLORS.ok} radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="xl:col-span-2 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-ink-950/50 dark:text-surface/50 text-left">
+                    <th className="font-medium pb-2">Department</th>
+                    <th className="font-medium pb-2 text-right">Open</th>
+                    <th className="font-medium pb-2 text-right">Closed</th>
+                    <th className="font-medium pb-2 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {departmentStats.map((d) => (
+                    <tr key={d.name} className="border-t border-line-light dark:border-line-dark">
+                      <td className="py-2 pr-2 truncate max-w-[180px]">{d.name}</td>
+                      <td className="py-2 text-right font-mono">{d.open}</td>
+                      <td className="py-2 text-right font-mono">{d.closed}</td>
+                      <td className="py-2 text-right font-mono font-medium">{d.open + d.closed}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="card p-5">
           <h2 className="text-sm font-semibold mb-4">Cases by status</h2>
           <ResponsiveContainer width="100%" height={220}>

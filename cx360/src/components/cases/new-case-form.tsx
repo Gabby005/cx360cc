@@ -26,7 +26,8 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
   const [saving, setSaving] = useState(false);
 
   const unitRequired = statusRequiresUnit(status);
-  const unitFieldVisible = isTransactional || unitRequired;
+  // Escalation unit is available for every case (transactional or not).
+  const unitFieldVisible = true;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

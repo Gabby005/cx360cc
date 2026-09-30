@@ -71,11 +71,11 @@ export function TransactionalToggle({
 }
 
 /**
- * Unit escalation select — only rendered (and only fetches /api/units)
- * when isTransactional is true. Placed after the comment field in every
- * case-creation form. Shows whenever the case is transactional (optional
- * unit there) OR the chosen status requires one (mandatory — e.g. Pending
- * with Bank / Pending with 3rd Party).
+ * Unit escalation select — available on every case, transactional or not.
+ * Optional by default; mandatory when the chosen status requires one
+ * (Pending with Bank / Pending with 3rd Party). Placed after the comment
+ * field in every case-creation form. `visible` is still honoured so a
+ * caller can hide it, but the forms now always pass true.
  */
 export function UnitEscalationField({
   visible,

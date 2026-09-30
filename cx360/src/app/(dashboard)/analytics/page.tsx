@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
-import { STATUS_LABEL } from "@/lib/case-status";
+import { STATUS_LABEL, OPEN_STATUSES } from "@/lib/case-status";
 import { AnalyticsCharts } from "@/components/analytics/analytics-charts";
 
 const DAYS = 14;
@@ -23,7 +23,7 @@ export default async function AnalyticsPage() {
   const driverStart = new Date();
   driverStart.setDate(driverStart.getDate() - DRIVER_DAYS);
 
-  const [byStatus, byPriority, trendCases, driverCases] = await Promise.all([
+  const [byStatus, byPriority, trendCases, driverCases, byUnitStatus, units] = await Promise.all([
     prisma.case.groupBy({ by: ["status"], where: { tenantId: ctx.tenantId }, _count: true }),
     prisma.case.groupBy({
       by: ["priority"],
@@ -41,6 +41,14 @@ export default async function AnalyticsPage() {
     prisma.case.findMany({
       where: { tenantId: ctx.tenantId, createdAt: { gte: driverStart }, caseCodeId: { not: null } },
       select: { type: true, caseCode: { select: { category: true } } },
+    }),
+    // Tickets per department (unit) x status — aggregated to open/closed below.
+    prisma.case.groupBy({ by: ["escalatedUnitId", "status"], where: { tenantId: ctx.tenantId }, _count: true }),
+    // All units, so a newly created department shows up (with 0/0) straight away.
+    prisma.unit.findMany({
+      where: { tenantId: ctx.tenantId },
+      select: { id: true, name: true, active: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -88,6 +96,30 @@ export default async function AnalyticsPage() {
   const statusBreakdown = byStatus.map((s) => ({ label: STATUS_LABEL[s.status] ?? s.status, count: s._count }));
   const priorityBreakdown = byPriority.map((p) => ({ label: p.priority, count: p._count }));
 
+  // Department = the unit a case is escalated to. Open = still needs work;
+  // Closed = Resolved + Closed. Cases with no unit are grouped separately.
+  const openSet = new Set<string>(OPEN_STATUSES);
+  const deptMap = new Map<string, { name: string; open: number; closed: number }>();
+  for (const u of units) if (u.active) deptMap.set(u.id, { name: u.name, open: 0, closed: 0 });
+  const noUnit = { name: "No unit assigned", open: 0, closed: 0 };
+  for (const row of byUnitStatus) {
+    const bucket = row.escalatedUnitId
+      ? (deptMap.get(row.escalatedUnitId) ??
+        (() => {
+          // Inactive/removed unit that still has cases — keep its history visible.
+          const u = units.find((x) => x.id === row.escalatedUnitId);
+          const b = { name: u ? `${u.name} (inactive)` : "Unknown unit", open: 0, closed: 0 };
+          deptMap.set(row.escalatedUnitId!, b);
+          return b;
+        })())
+      : noUnit;
+    if (openSet.has(row.status)) bucket.open += row._count;
+    else bucket.closed += row._count;
+  }
+  const departmentStats = [...deptMap.values(), ...(noUnit.open + noUnit.closed > 0 ? [noUnit] : [])].sort(
+    (a, b) => b.open + b.closed - (a.open + a.closed) || a.name.localeCompare(b.name)
+  );
+
   function topN(type: "COMPLAINT" | "SERVICE_REQUEST" | "INQUIRY", n = 5) {
     const counts = new Map<string, number>();
     for (const c of driverCases) {
@@ -107,7 +139,7 @@ export default async function AnalyticsPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6 max-w-4xl">
+    <div className="h-full overflow-y-auto p-6 w-full max-w-[1600px]">
       <h1 className="text-lg font-semibold mb-1">Analytics</h1>
       <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-6">
         Live trends from your own case data. Executive dashboards and CSAT/NPS rollups are Phase 2.
@@ -119,6 +151,7 @@ export default async function AnalyticsPage() {
         statusBreakdown={statusBreakdown}
         priorityBreakdown={priorityBreakdown}
         topDrivers={topDrivers}
+        departmentStats={departmentStats}
       />
     </div>
   );
