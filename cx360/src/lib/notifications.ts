@@ -49,6 +49,28 @@ export async function sendNotification(tx: Tx, input: SendNotificationInput): Pr
   return { ok: true };
 }
 
+/**
+ * Bulk variant for jobs that notify many customers at once (batch close).
+ * Same log row per message as sendNotification, but in ONE database call, so
+ * closing hundreds of cases doesn't mean hundreds of round trips. When a real
+ * email/SMS provider is wired in, hand it these same inputs here.
+ */
+export async function sendNotificationsBulk(tx: Tx, inputs: SendNotificationInput[]) {
+  if (inputs.length === 0) return;
+  console.log(`[notification:bulk] ${inputs.length} message(s)`);
+  await tx.notificationLog.createMany({
+    data: inputs.map((i) => ({
+      tenantId: i.tenantId,
+      channel: i.channel,
+      to: i.to,
+      subject: i.subject,
+      message: i.message,
+      relatedCaseId: i.relatedCaseId,
+      status: "logged",
+    })),
+  });
+}
+
 /** Convenience wrapper — sends the same message on both channels if both contact points exist. */
 export async function notifyCustomer(
   tx: Tx,

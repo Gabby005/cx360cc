@@ -28,6 +28,8 @@ const createSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   role: z.enum(["ADMIN", "SUPERVISOR", "AGENT", "READ_ONLY"]),
+  teamId: z.string().optional(),
+  unitId: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -36,6 +38,14 @@ export async function POST(req: NextRequest) {
     requirePermission(ctx, "ADMIN");
 
     const body = createSchema.parse(await req.json());
+
+    if (body.teamId && !(await prisma.team.findFirst({ where: { id: body.teamId, tenantId: ctx.tenantId }, select: { id: true } }))) {
+      throw new ApiError(400, "Team not found.");
+    }
+    if (body.unitId && !(await prisma.unit.findFirst({ where: { id: body.unitId, tenantId: ctx.tenantId }, select: { id: true } }))) {
+      throw new ApiError(400, "Department not found.");
+    }
+    const placement = { teamId: body.teamId || null, unitId: body.unitId || null };
 
     const existingUser = await prisma.user.findUnique({ where: { email: body.email } });
     if (existingUser) {
@@ -49,7 +59,7 @@ export async function POST(req: NextRequest) {
       // but isn't on this team yet — add a membership rather than erroring,
       // no new password needed since they already have an account.
       const membership = await prisma.membership.create({
-        data: { userId: existingUser.id, tenantId: ctx.tenantId, role: body.role },
+        data: { userId: existingUser.id, tenantId: ctx.tenantId, role: body.role, ...placement },
         include: { user: { select: { id: true, name: true, email: true, createdAt: true } } },
       });
       return NextResponse.json({ member: membership }, { status: 201 });
@@ -61,7 +71,7 @@ export async function POST(req: NextRequest) {
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({ data: { name: body.name, email: body.email, passwordHash } });
       const membership = await tx.membership.create({
-        data: { userId: user.id, tenantId: ctx.tenantId, role: body.role },
+        data: { userId: user.id, tenantId: ctx.tenantId, role: body.role, ...placement },
         include: { user: { select: { id: true, name: true, email: true, createdAt: true } } },
       });
       return membership;

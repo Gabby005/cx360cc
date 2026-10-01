@@ -5,7 +5,7 @@ import { WorkflowsClient } from "@/components/workflows/workflows-client";
 
 export default async function WorkflowsPage() {
   const ctx = await requireSession();
-  if (ctx.role !== "SUPERVISOR" && ctx.role !== "ADMIN") redirect("/dashboard");
+  if (ctx.role !== "ADMIN") redirect("/dashboard"); // Super Admin only
 
   const rules = await prisma.workflowRule.findMany({
     where: { tenantId: ctx.tenantId },
@@ -16,7 +16,7 @@ export default async function WorkflowsPage() {
   return (
     <WorkflowsClient
       rules={JSON.parse(JSON.stringify(rules))}
-      canEdit={ctx.role === "ADMIN" || ctx.role === "SUPERVISOR"}
+      canEdit
     />
   );
 }

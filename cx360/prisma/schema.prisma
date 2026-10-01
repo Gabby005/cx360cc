@@ -23,6 +23,7 @@ model Tenant {
   caseSequence      Int      @default(0)
   brandColor        String   @default("#5B5FEF") // hex; drives --brand-rgb CSS var, see src/lib/theme.ts
   logoDataUrl       String?  // base64 data URI — no object storage (S3/Cloudinary) configured in this environment
+  customerSummaryFields Json? // [{key,label,sensitive}] extra core-banking fields shown on the customer summary card
   createdAt         DateTime @default(now())
 
   users        Membership[]

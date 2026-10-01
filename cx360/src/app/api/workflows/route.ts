@@ -40,7 +40,7 @@ const createSchema = z.object({
 export async function GET() {
   try {
     const ctx = await requireSession();
-    requirePermission(ctx, "SUPERVISOR");
+    requirePermission(ctx, "ADMIN");
     const rules = await prisma.workflowRule.findMany({
       where: { tenantId: ctx.tenantId },
       orderBy: { createdAt: "desc" },
@@ -55,7 +55,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const ctx = await requireSession();
-    requirePermission(ctx, "SUPERVISOR"); // supervisors and admins can configure automation
+    requirePermission(ctx, "ADMIN"); // Workflows are Super Admin only
 
     const body = createSchema.parse(await req.json());
     const rule = await prisma.workflowRule.create({

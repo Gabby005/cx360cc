@@ -16,7 +16,9 @@ type Account = {
   openedAt: string;
   transactions: Txn[];
 };
+type ProfileField = { key: string; label: string; sensitive: boolean; value: string | null };
 type Overview = {
+  profile: ProfileField[];
   customer: {
     id: string;
     firstName: string;
@@ -85,6 +87,7 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
   const [error, setError] = useState<string | null>(null);
   const [activeAcct, setActiveAcct] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false); // privacy toggle: masks balances + account numbers
+  const [revealed, setRevealed] = useState<Set<string>>(new Set()); // sensitive profile fields the agent chose to show
 
   useEffect(() => {
     if (!customerId) {
@@ -102,6 +105,7 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
       })
       .then((d) => {
         setData(d);
+        setRevealed(new Set());
         setActiveAcct(d.accounts[0]?.id ?? null);
       })
       .catch((e) => {
@@ -143,23 +147,23 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
   if (accounts.some((a) => a.status.toLowerCase() !== "active")) alerts.push({ text: "Has a non-active account", cls: "pill-warning" });
 
   return (
-    <div className={`card p-5 space-y-5 ${loading ? "opacity-60" : ""}`}>
+    <div className={`card p-7 space-y-7 text-[15px] ${loading ? "opacity-60" : ""}`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="avatar w-11 h-11 text-sm">
+          <span className="avatar w-16 h-16 text-lg">
             {customer.firstName[0]}
             {customer.lastName[0]}
           </span>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-semibold truncate">
+              <h2 className="text-2xl font-semibold truncate">
                 {customer.firstName} {customer.lastName}
               </h2>
               {customer.segment && <span className="pill-brand">{customer.segment}</span>}
               {sentiment && <span className={sentiment.cls}>{sentiment.text}</span>}
             </div>
-            <div className="text-xs text-ink-950/60 dark:text-surface/60 flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+            <div className="text-sm text-ink-950/60 dark:text-surface/60 flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
               {customer.phone && (
                 <span className="inline-flex items-center gap-1">
                   {customer.phone} <CopyButton value={customer.phone} label="phone" />
@@ -196,7 +200,7 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
       )}
 
       {/* Quick stats */}
-      <div className="grid grid-cols-3 gap-3 text-center">
+      <div className="grid grid-cols-3 gap-4 text-center">
         <Stat label="Open cases" value={String(cases.open)} />
         <Stat label="Cases (30 days)" value={String(cases.last30Days)} />
         <Stat
@@ -206,14 +210,55 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
         />
       </div>
 
+      {/* Customer details chosen by the Super Admin (BVN, date of birth, address…) */}
+      {data.profile.length > 0 && (
+        <div>
+          <h3 className="text-[13px] font-semibold tracking-wide text-ink-950/50 dark:text-surface/50 mb-3">CUSTOMER DETAILS</h3>
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+            {data.profile.map((f) => {
+              const show = !f.sensitive || (!hidden && revealed.has(f.key));
+              return (
+                <div key={f.key} className="min-w-0">
+                  <dt className="text-xs text-ink-950/50 dark:text-surface/50">{f.label}</dt>
+                  <dd className="text-[15px] font-medium break-words flex items-center gap-1.5">
+                    {f.value === null ? (
+                      <span className="text-ink-950/35 dark:text-surface/35">—</span>
+                    ) : show ? (
+                      <>
+                        {f.value}
+                        {f.sensitive && (
+                          <button type="button" title="Hide" onClick={() => setRevealed((r) => { const n = new Set(r); n.delete(f.key); return n; })} className="text-ink-950/40 dark:text-surface/40 hover:text-brand">
+                            <EyeOff size={13} />
+                          </button>
+                        )}
+                        <CopyButton value={f.value} label={f.label} />
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-mono">{mask(f.value)}</span>
+                        {!hidden && (
+                          <button type="button" title="Show" onClick={() => setRevealed((r) => new Set(r).add(f.key))} className="text-ink-950/40 dark:text-surface/40 hover:text-brand">
+                            <Eye size={13} />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+        </div>
+      )}
+
       {/* Accounts */}
       <div>
         <div className="flex items-baseline justify-between mb-2">
-          <h3 className="text-xs font-semibold tracking-wide text-ink-950/50 dark:text-surface/50">
+          <h3 className="text-[13px] font-semibold tracking-wide text-ink-950/50 dark:text-surface/50">
             ACCOUNTS ({data.accountCount})
           </h3>
           {totals.size > 0 && (
-            <div className="text-xs text-ink-950/60 dark:text-surface/60 font-mono">
+            <div className="text-sm text-ink-950/60 dark:text-surface/60 font-mono">
               Total: {[...totals.entries()].map(([c, n]) => (hidden ? `${c} ••••••` : money(n, c))).join(" · ")}
             </div>
           )}
@@ -227,17 +272,17 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
                 key={a.id}
                 type="button"
                 onClick={() => setActiveAcct(a.id)}
-                className={`w-full text-left rounded-lg border px-3 py-2 flex items-center justify-between gap-3 transition-colors ${
+                className={`w-full text-left rounded-xl border px-4 py-3.5 flex items-center justify-between gap-3 transition-colors ${
                   a.id === account?.id
                     ? "border-brand bg-brand-light/40 dark:bg-brand/10"
                     : "border-line-light dark:border-line-dark hover:bg-surface dark:hover:bg-ink-800"
                 }`}
               >
                 <div className="min-w-0">
-                  <div className="text-sm font-medium truncate flex items-center gap-2">
+                  <div className="text-base font-medium truncate flex items-center gap-2">
                     {a.productName} <span className={acctPill(a.status)}>{a.status}</span>
                   </div>
-                  <div className="text-xs font-mono text-ink-950/50 dark:text-surface/50 flex items-center gap-1.5">
+                  <div className="text-sm font-mono text-ink-950/50 dark:text-surface/50 flex items-center gap-1.5 mt-0.5">
                     {a.accountRef ? (hidden ? mask(a.accountRef) : a.accountRef) : "No account number"}
                     {a.accountRef && !hidden && (
                       <span onClick={(e) => e.stopPropagation()}>
@@ -246,7 +291,7 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
                     )}
                   </div>
                 </div>
-                <div className="text-sm font-mono font-semibold shrink-0">
+                <div className="text-lg font-mono font-semibold shrink-0">
                   {a.balance === null ? "—" : hidden ? `${a.currency} ••••••` : money(a.balance, a.currency)}
                 </div>
               </button>
@@ -258,7 +303,7 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
       {/* Last 5 transactions for the selected account (KYC checks) */}
       {account && (
         <div>
-          <h3 className="text-xs font-semibold tracking-wide text-ink-950/50 dark:text-surface/50 mb-2">
+          <h3 className="text-[13px] font-semibold tracking-wide text-ink-950/50 dark:text-surface/50 mb-2">
             LAST 5 TRANSACTIONS · {account.productName.toUpperCase()}
           </h3>
           {account.transactions.length === 0 ? (
@@ -268,21 +313,21 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
               {account.transactions.map((t) => {
                 const credit = t.type === "credit";
                 return (
-                  <li key={t.id} className="py-2 flex items-center justify-between gap-3">
+                  <li key={t.id} className="py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span
-                        className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+                        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
                           credit ? "bg-sla-ok/10 text-sla-ok" : "bg-sla-breach/10 text-sla-breach"
                         }`}
                       >
-                        {credit ? <ArrowDownLeft size={13} /> : <ArrowUpRight size={13} />}
+                        {credit ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
                       </span>
                       <div className="min-w-0">
-                        <div className="text-sm truncate">{t.description}</div>
-                        <div className="text-xs text-ink-950/50 dark:text-surface/50">{date(t.transactionDate)}</div>
+                        <div className="text-[15px] truncate">{t.description}</div>
+                        <div className="text-[13px] text-ink-950/50 dark:text-surface/50">{date(t.transactionDate)}</div>
                       </div>
                     </div>
-                    <div className={`text-sm font-mono font-medium shrink-0 ${credit ? "text-sla-ok" : ""}`}>
+                    <div className={`text-[15px] font-mono font-medium shrink-0 ${credit ? "text-sla-ok" : ""}`}>
                       {hidden ? "••••••" : `${credit ? "+" : "−"}${money(t.amount, t.currency)}`}
                     </div>
                   </li>
@@ -298,7 +343,7 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
 
       {/* Recent cases */}
       <div>
-        <h3 className="text-xs font-semibold tracking-wide text-ink-950/50 dark:text-surface/50 mb-2">RECENT CASES</h3>
+        <h3 className="text-[13px] font-semibold tracking-wide text-ink-950/50 dark:text-surface/50 mb-2">RECENT CASES</h3>
         {cases.recent.length === 0 ? (
           <p className="text-sm text-ink-950/50 dark:text-surface/50">No previous cases — first contact.</p>
         ) : (
@@ -308,11 +353,11 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
                 <Link
                   href={`/cases/${c.id}`}
                   target="_blank"
-                  className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-surface dark:hover:bg-ink-800"
+                  className="flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 hover:bg-surface dark:hover:bg-ink-800"
                 >
                   <div className="min-w-0">
-                    <div className="text-sm truncate">{c.subject}</div>
-                    <div className="text-xs text-ink-950/50 dark:text-surface/50">
+                    <div className="text-[15px] truncate">{c.subject}</div>
+                    <div className="text-[13px] text-ink-950/50 dark:text-surface/50">
                       {c.caseNumber} · {TYPE_LABEL[c.type] ?? c.type} · {date(c.createdAt)}
                     </div>
                   </div>
@@ -329,9 +374,9 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-lg bg-surface dark:bg-ink-800 px-2 py-2">
-      <div className="text-sm font-semibold">{value}</div>
-      <div className="text-[11px] text-ink-950/50 dark:text-surface/50">{sub ? `${label} · ${sub}` : label}</div>
+    <div className="rounded-xl bg-surface dark:bg-ink-800 px-3 py-3.5">
+      <div className="text-xl font-semibold">{value}</div>
+      <div className="text-xs text-ink-950/50 dark:text-surface/50 mt-0.5">{sub ? `${label} · ${sub}` : label}</div>
     </div>
   );
 }

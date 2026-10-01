@@ -53,6 +53,18 @@ export default async function AdminPage() {
       </section>
 
       <section className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold">Customer summary fields</h2>
+          <Link href="/admin/customer-summary" className="text-xs text-brand hover:underline">
+            Choose fields →
+          </Link>
+        </div>
+        <div className="card p-4 text-sm text-ink-950/60 dark:text-surface/60">
+          Pick the core-banking details agents see on the customer card — BVN, date of birth, address and more.
+        </div>
+      </section>
+
+      <section className="mb-6">
         <h2 className="text-sm font-semibold mb-2">SLA policies</h2>
         <div className="card divide-y divide-line-light dark:divide-line-dark">
           {policies.map((p) => (

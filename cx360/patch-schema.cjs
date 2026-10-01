@@ -34,6 +34,8 @@ edit("model", "Membership", "Membership.unit", /unitId\s+String\?/,
   after(/^[ \t]*teamId\s+String\?.*$/m, "  unit   Unit?  @relation(fields: [unitId], references: [id]) // the department this person works in\n  unitId String?"));
 edit("model", "Unit", "Unit.members", /members\s+Membership\[\]/,
   after(/^[ \t]*cases\s+Case\[\].*$/m, "  members Membership[]"));
+edit("model", "Tenant", "Tenant.customerSummaryFields", /customerSummaryFields\s+Json\?/,
+  after(/^[ \t]*logoDataUrl\s+String\?.*$/m, "  customerSummaryFields Json? // [{key,label,sensitive}] extra core-banking fields shown on the customer summary card"));
 edit("model", "AuditLog", "AuditLog index", /actorId, action, createdAt/,
   beforeClose("  @@index([tenantId, actorId, action, createdAt])"));
 

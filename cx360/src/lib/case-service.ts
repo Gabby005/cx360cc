@@ -248,10 +248,17 @@ export async function notifyCaseClosed(tx: Tx, tenantId: string, caseId: string)
     tenantId,
     email: kase.customer.email,
     phone: kase.customer.phone,
-    subject: `Your ticket ${kase.caseNumber} has been closed`,
-    message: `Hi ${kase.customer.firstName}, ticket ${kase.caseNumber} ("${kase.subject}") has been closed. If you still need help, just reach out and we'll reopen it.`,
+    ...closedCaseMessage({ caseNumber: kase.caseNumber, subject: kase.subject, firstName: kase.customer.firstName }),
     relatedCaseId: kase.id,
   });
+}
+
+/** The "your ticket has been closed" wording — one copy, used by single and batch close. */
+export function closedCaseMessage(c: { caseNumber: string; subject: string; firstName: string }) {
+  return {
+    subject: `Your ticket ${c.caseNumber} has been closed`,
+    message: `Hi ${c.firstName}, ticket ${c.caseNumber} ("${c.subject}") has been closed. If you still need help, just reach out and we'll reopen it.`,
+  };
 }
 
 /**

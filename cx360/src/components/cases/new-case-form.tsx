@@ -73,8 +73,8 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,40rem)_minmax(0,1fr)] gap-6 items-start">
-    <form onSubmit={submit} className="space-y-4">
+    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,50rem)_minmax(0,1fr)] gap-8 items-start">
+    <form onSubmit={submit} className="space-y-5 [&_.input]:py-3 [&_.input]:text-base [&_label]:text-sm [&_label]:mb-1.5 [&_textarea]:min-h-[9rem]">
       <div>
         <label className="block text-xs font-medium mb-1">Customer</label>
         {customer ? (

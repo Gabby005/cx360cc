@@ -1,80 +1,159 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
-import { logCaseActivity, notifyCaseClosed } from "@/lib/case-service";
+import { closedCaseMessage } from "@/lib/case-service";
+import { sendNotificationsBulk, type SendNotificationInput } from "@/lib/notifications";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
 export const dynamic = "force-dynamic";
 
-const filterSchema = z.object({
-  fromDate: z.string(),
-  toDate: z.string(),
-  status: z.enum(["NEW", "OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY", "ESCALATED", "RESOLVED"]).optional(),
-});
+/** One run closes at most this many tickets, so a single click can never overload the database. Run again for the rest. */
+const MAX_BATCH = 1000;
+const DAY = 86_400_000;
 
-function buildWhere(tenantId: string, filter: z.infer<typeof filterSchema>) {
-  return {
+const STATUSES = ["NEW", "OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY", "ESCALATED", "RESOLVED"] as const;
+
+const filterSchema = z.object({
+  fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a From date"),
+  toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a To date"),
+  category: z.string().trim().max(120).optional(),
+  subcategory: z.string().trim().max(120).optional(),
+  status: z.enum(STATUSES).optional(),
+});
+type Filter = z.infer<typeof filterSchema>;
+
+/** Builds the filter. Returns null when the chosen category/subcategory matches no case codes (so nothing can match). */
+async function buildWhere(tenantId: string, f: Filter): Promise<Prisma.CaseWhereInput | null> {
+  const from = new Date(`${f.fromDate}T00:00:00.000Z`);
+  const to = new Date(`${f.toDate}T00:00:00.000Z`);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) throw new ApiError(400, "The To date must be on or after the From date.");
+
+  const where: Prisma.CaseWhereInput = {
     tenantId,
-    status: filter.status ? filter.status : { notIn: ["CLOSED" as const] },
-    createdAt: { gte: new Date(filter.fromDate), lte: new Date(filter.toDate) },
+    status: f.status ?? { not: "CLOSED" },
+    createdAt: { gte: from, lt: new Date(to.getTime() + DAY) }, // the whole "To" day is included
   };
+
+  if (f.category) {
+    const codes = await prisma.caseCode.findMany({
+      where: { tenantId, category: f.category, ...(f.subcategory ? { subcategory: f.subcategory } : {}) },
+      select: { id: true },
+    });
+    if (codes.length === 0) return null;
+    where.caseCodeId = { in: codes.map((c) => c.id) };
+  }
+  return where;
 }
 
-/** Preview: how many cases would this batch-close affect? Doesn't change anything. */
+function parseQuery(req: NextRequest) {
+  const sp = req.nextUrl.searchParams;
+  const val = (k: string) => sp.get(k) || undefined;
+  return filterSchema.parse({
+    fromDate: val("fromDate"),
+    toDate: val("toDate"),
+    category: val("category"),
+    subcategory: val("subcategory"),
+    status: val("status"),
+  });
+}
+
+/** Preview: how many tickets would this close, and which ones (first 5)? Changes nothing. */
 export async function GET(req: NextRequest) {
   try {
     const ctx = await requireSession();
     requirePermission(ctx, "SUPERVISOR");
 
-    const filter = filterSchema.parse({
-      fromDate: req.nextUrl.searchParams.get("fromDate"),
-      toDate: req.nextUrl.searchParams.get("toDate"),
-      status: req.nextUrl.searchParams.get("status") ?? undefined,
-    });
+    const where = await buildWhere(ctx.tenantId, parseQuery(req));
+    if (!where) return NextResponse.json({ count: 0, willClose: 0, sample: [], maxBatch: MAX_BATCH });
 
-    const count = await prisma.case.count({ where: buildWhere(ctx.tenantId, filter) });
-    return NextResponse.json({ count });
+    const [count, sample] = await Promise.all([
+      prisma.case.count({ where }),
+      prisma.case.findMany({
+        where,
+        orderBy: { createdAt: "asc" },
+        take: 5,
+        select: { caseNumber: true, subject: true, status: true },
+      }),
+    ]);
+    return NextResponse.json({ count, willClose: Math.min(count, MAX_BATCH), sample, maxBatch: MAX_BATCH });
   } catch (err) {
     return handleError(err);
   }
 }
 
-/** Execute: closes every matching case, logging one audit entry per case. */
+const execSchema = filterSchema.extend({ confirm: z.literal(true) });
+
+/** Execute: closes the matching tickets (oldest first, up to MAX_BATCH), with one audit entry each and one customer notification each. */
 export async function POST(req: NextRequest) {
   try {
     const ctx = await requireSession();
     requirePermission(ctx, "SUPERVISOR");
 
-    const filter = filterSchema.parse(await req.json());
-    const where = buildWhere(ctx.tenantId, filter);
+    const { confirm: _confirm, ...filter } = execSchema.parse(await req.json());
+    const where = await buildWhere(ctx.tenantId, filter);
+    if (!where) return NextResponse.json({ closed: 0, remaining: 0 });
 
-    const matching = await prisma.case.findMany({ where, select: { id: true, status: true } });
-    if (matching.length === 0) {
-      return NextResponse.json({ closed: 0 });
+    const matching = await prisma.case.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      take: MAX_BATCH,
+      select: {
+        id: true,
+        caseNumber: true,
+        subject: true,
+        status: true,
+        customer: { select: { firstName: true, email: true, phone: true } },
+      },
+    });
+    if (matching.length === 0) return NextResponse.json({ closed: 0, remaining: 0 });
+
+    const ids = matching.map((c) => c.id);
+    const now = new Date();
+
+    const notifications: SendNotificationInput[] = [];
+    for (const c of matching) {
+      const msg = closedCaseMessage({ caseNumber: c.caseNumber, subject: c.subject, firstName: c.customer.firstName });
+      if (c.customer.email) notifications.push({ tenantId: ctx.tenantId, channel: "email", to: c.customer.email, ...msg, relatedCaseId: c.id });
+      if (c.customer.phone) notifications.push({ tenantId: ctx.tenantId, channel: "sms", to: c.customer.phone, message: msg.message, relatedCaseId: c.id });
     }
 
-    const now = new Date();
-    await prisma.$transaction(async (tx) => {
-      await tx.case.updateMany({
-        where: { id: { in: matching.map((c) => c.id) } },
-        data: { status: "CLOSED", closedAt: now },
-      });
-
-      for (const c of matching) {
-        await logCaseActivity(tx, {
-          tenantId: ctx.tenantId,
-          caseId: c.id,
-          actorId: ctx.userId,
-          action: "batch_closed",
-          before: { status: c.status },
-          after: { status: "CLOSED" },
+    // A handful of bulk statements instead of thousands of single ones.
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.case.updateMany({
+          where: { id: { in: ids }, tenantId: ctx.tenantId, status: { not: "CLOSED" } },
+          data: { status: "CLOSED", closedAt: now },
         });
-        await notifyCaseClosed(tx, ctx.tenantId, c.id);
-      }
-    });
+        await tx.auditLog.createMany({
+          data: matching.map((c) => ({
+            tenantId: ctx.tenantId,
+            actorId: ctx.userId,
+            action: "batch_closed",
+            entity: "Case",
+            entityId: c.id,
+            before: { status: c.status },
+            after: { status: "CLOSED" },
+          })),
+        });
+        await sendNotificationsBulk(tx, notifications);
+        await tx.auditLog.create({
+          data: {
+            tenantId: ctx.tenantId,
+            actorId: ctx.userId,
+            action: "batch_close_run",
+            entity: "CaseBatch",
+            entityId: ctx.userId,
+            after: { filter, closed: matching.length } as unknown as Prisma.InputJsonValue,
+          },
+        });
+      },
+      { timeout: 30_000, maxWait: 10_000 }
+    );
 
-    return NextResponse.json({ closed: matching.length });
+    const remaining = await prisma.case.count({ where });
+    return NextResponse.json({ closed: matching.length, remaining });
   } catch (err) {
     return handleError(err);
   }

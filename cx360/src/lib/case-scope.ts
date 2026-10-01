@@ -7,15 +7,18 @@ import type { SessionContext } from "@/lib/tenant";
  * Which tickets a person is looking at. One definition shared by the Cases
  * page and the Excel export, so what you see is exactly what you download.
  *
- *   mine      logged by me OR assigned to me   (default for agents)
+ *   mine      logged by me OR assigned to me   (default for everyone but supervisors/admins)
  *   logged    logged by me
  *   assigned  assigned to me
- *   team      logged by / assigned to anyone on my team
- *   unit      escalated to my department (unit)
- *   all       every ticket in the bank          (default for supervisors/admins)
+ *   unit      my team & department: tickets escalated to my department, plus
+ *             everything logged by or assigned to anyone in my department / team.
+ *             (So an agent's own tickets also roll up into their department's view.)
+ *   all       every ticket in the bank — supervisors and super admins only
+ *
+ * Old "team" links keep working and mean the same as "unit".
  */
-export type CaseScope = "mine" | "logged" | "assigned" | "team" | "unit" | "all";
-export const SCOPES: CaseScope[] = ["mine", "logged", "assigned", "team", "unit", "all"];
+export type CaseScope = "mine" | "logged" | "assigned" | "unit" | "all";
+export const SCOPES: CaseScope[] = ["mine", "logged", "assigned", "unit", "all"];
 
 export const PAGE_SIZE = 25;
 export const MAX_PAGE = 200; // beyond this, narrow the filters instead of paging deeper
@@ -27,8 +30,7 @@ export type Filters = {
   q?: string;
   from?: string;
   to?: string;
-  teamId?: string; // supervisors/admins may look at any team
-  unitId?: string; // supervisors/admins may look at any department
+  group?: string; // supervisors/admins: "u:<departmentId>" or "t:<teamId>"
 };
 
 export type Me = { teamId: string | null; unitId: string | null };
@@ -44,19 +46,28 @@ export async function getMe(ctx: SessionContext): Promise<Me> {
 export const isSupervisor = (ctx: SessionContext) => ctx.role === "SUPERVISOR" || ctx.role === "ADMIN";
 
 export function defaultScope(ctx: SessionContext): CaseScope {
-  return ctx.role === "AGENT" ? "mine" : "all";
+  return isSupervisor(ctx) ? "all" : "mine";
 }
 
 export function parseScope(raw: string | undefined, ctx: SessionContext): CaseScope {
-  return SCOPES.includes(raw as CaseScope) ? (raw as CaseScope) : defaultScope(ctx);
+  const s = raw === "team" ? "unit" : raw;
+  if (!SCOPES.includes(s as CaseScope)) return defaultScope(ctx);
+  if (s === "all" && !isSupervisor(ctx)) return defaultScope(ctx); // agents see their own + their department's, not the whole bank
+  return s as CaseScope;
 }
 
-/** The team / department actually in play for this view (own, or chosen by a supervisor). */
-export function effectiveTeamId(f: Filters, ctx: SessionContext, me: Me) {
-  return (isSupervisor(ctx) && f.teamId) || me.teamId || null;
-}
-export function effectiveUnitId(f: Filters, ctx: SessionContext, me: Me) {
-  return (isSupervisor(ctx) && f.unitId) || me.unitId || null;
+type Group = { kind: "unit" | "team"; id: string };
+
+/** The department / team actually in play: the person's own, or (supervisors/admins only) one they picked. */
+export function resolveGroups(f: Filters, ctx: SessionContext, me: Me): Group[] {
+  if (isSupervisor(ctx) && f.group) {
+    const m = /^([ut]):(.+)$/.exec(f.group);
+    if (m) return [{ kind: m[1] === "u" ? "unit" : "team", id: m[2] }];
+  }
+  const g: Group[] = [];
+  if (me.unitId) g.push({ kind: "unit", id: me.unitId });
+  if (me.teamId) g.push({ kind: "team", id: me.teamId });
+  return g;
 }
 
 const dayStart = (s: string) => {
@@ -66,7 +77,7 @@ const dayStart = (s: string) => {
 
 /**
  * Builds the Prisma filter. Returns `null` when the scope can't show anything
- * yet (e.g. "my team" but the person isn't on a team) so callers can show a
+ * yet (e.g. "my department" but the person isn't in one) so callers can show a
  * helpful message instead of an empty or — worse — an unscoped list.
  */
 export async function buildCaseWhere(
@@ -81,20 +92,25 @@ export async function buildCaseWhere(
   if (scope === "mine") and.push({ OR: [{ createdById: ctx.userId }, { assignedToId: ctx.userId }] });
   else if (scope === "logged") and.push({ createdById: ctx.userId });
   else if (scope === "assigned") and.push({ assignedToId: ctx.userId });
-  else if (scope === "team") {
-    const teamId = effectiveTeamId(f, ctx, me);
-    if (!teamId) return null;
+  else if (scope === "unit") {
+    const groups = resolveGroups(f, ctx, me);
+    if (groups.length === 0) return null;
+
     const members = await prisma.membership.findMany({
-      where: { tenantId: ctx.tenantId, teamId },
+      where: {
+        tenantId: ctx.tenantId,
+        OR: groups.map((g) => (g.kind === "unit" ? { unitId: g.id } : { teamId: g.id })),
+      },
       select: { userId: true },
     });
-    const ids = members.map((m) => m.userId);
-    if (ids.length === 0) return null;
-    and.push({ OR: [{ createdById: { in: ids } }, { assignedToId: { in: ids } }] });
-  } else if (scope === "unit") {
-    const unitId = effectiveUnitId(f, ctx, me);
-    if (!unitId) return null;
-    and.push({ escalatedUnitId: unitId });
+    const ids = [...new Set(members.map((m) => m.userId))];
+    const unitIds = groups.filter((g) => g.kind === "unit").map((g) => g.id);
+
+    const or: Prisma.CaseWhereInput[] = [];
+    if (unitIds.length) or.push({ escalatedUnitId: { in: unitIds } });
+    if (ids.length) or.push({ createdById: { in: ids } }, { assignedToId: { in: ids } });
+    if (or.length === 0) return null;
+    and.push({ OR: or });
   }
   // scope === "all": tenant only
 

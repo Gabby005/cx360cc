@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Copy, Check } from "lucide-react";
+import { ROLE_LABEL, ROLE_HELP } from "@/lib/roles";
 
 const ROLES = ["ADMIN", "SUPERVISOR", "AGENT", "READ_ONLY"] as const;
 
@@ -46,7 +47,7 @@ export function UsersClient({
       </div>
 
       {showForm && (
-        <CreateUserForm
+        <CreateUserForm teams={teams} units={units}
           onCreated={(member) => {
             setMembers((prev) => [...prev, member].sort((a, b) => a.user.name.localeCompare(b.user.name)));
           }}
@@ -144,7 +145,7 @@ function MemberRow({
           </option>
         ))}
       </select>
-      <span className={`${ROLE_PILL[member.role]} shrink-0`}>{member.role}</span>
+      <span className={`${ROLE_PILL[member.role]} shrink-0`}>{ROLE_LABEL[member.role]}</span>
       {!isSelf && (
         <select
           value={member.role}
@@ -154,7 +155,7 @@ function MemberRow({
         >
           {ROLES.map((r) => (
             <option key={r} value={r}>
-              {r}
+              {ROLE_LABEL[r]}
             </option>
           ))}
         </select>
@@ -200,7 +201,9 @@ function NewTeam({ onCreated }: { onCreated: (t: Option) => void }) {
   );
 }
 
-function CreateUserForm({ onCreated }: { onCreated: (member: Member) => void }) {
+function CreateUserForm({ onCreated, teams, units }: { onCreated: (member: Member) => void; teams: Option[]; units: Option[] }) {
+  const [teamId, setTeamId] = useState("");
+  const [unitId, setUnitId] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Member["role"]>("AGENT");
@@ -219,7 +222,7 @@ function CreateUserForm({ onCreated }: { onCreated: (member: Member) => void }) 
     const res = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, role }),
+      body: JSON.stringify({ name, email, role, teamId: teamId || undefined, unitId: unitId || undefined }),
     });
     setSaving(false);
 
@@ -235,6 +238,8 @@ function CreateUserForm({ onCreated }: { onCreated: (member: Member) => void }) 
     setName("");
     setEmail("");
     setRole("AGENT");
+    setTeamId("");
+    setUnitId("");
   }
 
   if (tempPassword) {
@@ -286,10 +291,31 @@ function CreateUserForm({ onCreated }: { onCreated: (member: Member) => void }) 
         <select value={role} onChange={(e) => setRole(e.target.value as Member["role"])} className="input">
           {ROLES.map((r) => (
             <option key={r} value={r}>
-              {r}
+              {ROLE_LABEL[r]}
             </option>
           ))}
         </select>
+      </div>
+      <p className="text-[11px] text-ink-950/50 dark:text-surface/50 -mt-1">{ROLE_HELP[role]}</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium mb-1">Department</label>
+          <select value={unitId} onChange={(e) => setUnitId(e.target.value)} className="input">
+            <option value="">None</option>
+            {units.map((x) => (
+              <option key={x.id} value={x.id}>{x.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-1">Team</label>
+          <select value={teamId} onChange={(e) => setTeamId(e.target.value)} className="input">
+            <option value="">None</option>
+            {teams.map((x) => (
+              <option key={x.id} value={x.id}>{x.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
       {error && <p className="text-xs text-sla-breach">{error}</p>}
       <button type="submit" disabled={saving} className="btn-primary w-full text-sm">

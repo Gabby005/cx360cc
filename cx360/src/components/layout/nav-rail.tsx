@@ -24,7 +24,7 @@ const ITEMS = [
   { href: "/customers", icon: Users, label: "Customers" },
   { href: "/performance", icon: Award, label: "My performance" },
   { href: "/knowledge", icon: BookOpen, label: "Knowledge base" },
-  { href: "/workflows", icon: Workflow, label: "Workflows", restrictedTo: ["SUPERVISOR", "ADMIN"] },
+  { href: "/workflows", icon: Workflow, label: "Workflows", restrictedTo: ["ADMIN"] },
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
 ] as const;
 

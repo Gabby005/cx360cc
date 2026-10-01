@@ -14,7 +14,7 @@ export default async function NewCasePage({ searchParams }: { searchParams: { cu
     : null;
 
   return (
-    <div className="h-full overflow-y-auto p-6 max-w-[1400px]">
+    <div className="h-full overflow-y-auto p-6 max-w-[1900px]">
       <Link href="/cases" className="text-xs text-ink-950/50 dark:text-surface/50 hover:text-brand">
         ← All cases
       </Link>

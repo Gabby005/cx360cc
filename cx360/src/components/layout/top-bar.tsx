@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session } from "next-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ROLE_LABEL, type Role } from "@/lib/roles";
 
 export function TopBar({ user }: { user: Session["user"] }) {
   const router = useRouter();
@@ -73,7 +74,7 @@ export function TopBar({ user }: { user: Session["user"] }) {
         {menuOpen && (
           <div className="absolute right-0 mt-2 w-48 card shadow-popover py-1.5 z-20">
             <div className="px-3 py-2 text-xs text-ink-950/50 dark:text-surface/50 border-b border-line-light dark:border-line-dark mb-1">
-              {user.tenantName} · {user.role}
+              {user.tenantName} · {ROLE_LABEL[user.role as Role] ?? user.role}
             </div>
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}

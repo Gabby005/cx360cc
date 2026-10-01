@@ -8,7 +8,7 @@ const patchSchema = z.object({ enabled: z.boolean() });
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const ctx = await requireSession();
-    requirePermission(ctx, "SUPERVISOR");
+    requirePermission(ctx, "ADMIN");
 
     const body = patchSchema.parse(await req.json());
     const existing = await prisma.workflowRule.findFirst({ where: { id: params.id, tenantId: ctx.tenantId } });

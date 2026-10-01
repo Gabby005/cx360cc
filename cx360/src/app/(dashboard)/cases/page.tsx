@@ -10,8 +10,7 @@ import {
   getMe,
   isSupervisor,
   parseScope,
-  effectiveTeamId,
-  effectiveUnitId,
+  resolveGroups,
   PAGE_SIZE,
   MAX_PAGE,
   type CaseScope,
@@ -69,9 +68,8 @@ export default async function CasesPage({ searchParams }: { searchParams: Filter
     { key: "mine", label: "My tickets" },
     { key: "logged", label: "Logged by me" },
     { key: "assigned", label: "Assigned to me" },
-    ...(me.teamId || sup ? [{ key: "team" as const, label: "My team" }] : []),
-    ...(me.unitId || sup ? [{ key: "unit" as const, label: "My department" }] : []),
-    { key: "all", label: "All cases" },
+    ...(me.teamId || me.unitId || sup ? [{ key: "unit" as const, label: "My team & department" }] : []),
+    ...(sup ? [{ key: "all" as const, label: "All cases" }] : []),
   ];
 
   const base: Record<string, string | undefined> = {
@@ -80,8 +78,7 @@ export default async function CasesPage({ searchParams }: { searchParams: Filter
     q: searchParams.q,
     from: searchParams.from,
     to: searchParams.to,
-    teamId: searchParams.teamId,
-    unitId: searchParams.unitId,
+    group: searchParams.group,
   };
   const href = (o: Record<string, string | undefined>, path = "/cases") => {
     const p = new URLSearchParams();
@@ -93,18 +90,12 @@ export default async function CasesPage({ searchParams }: { searchParams: Filter
   const canExport = scope !== "all" || sup;
   const exportHref = href({ page: undefined }, "/api/cases/export");
 
-  const teamId = effectiveTeamId(filters, ctx, me);
-  const unitId = effectiveUnitId(filters, ctx, me);
   const emptyReason =
-    !where && scope === "team"
-      ? sup && !teamId
-        ? "Choose a team above to see its tickets."
-        : "You're not on a team yet, or your team has no members. Ask an admin to add you."
-      : !where && scope === "unit"
-        ? sup && !unitId
-          ? "Choose a department above to see its tickets."
-          : "You're not linked to a department yet. Ask an admin to set it in Users & roles."
-        : null;
+    !where && scope === "unit"
+      ? sup && resolveGroups(filters, ctx, me).length === 0
+        ? "Choose a department or team above to see its tickets."
+        : "Nothing to show yet: you're not in a department or team, or it has no members. Ask a Super Admin to set this in Users & roles."
+      : null;
 
   return (
     <div className="h-full flex flex-col">
@@ -133,7 +124,7 @@ export default async function CasesPage({ searchParams }: { searchParams: Filter
           {tabs.map((t) => (
             <Link
               key={t.key}
-              href={href({ scope: t.key, page: undefined, teamId: undefined, unitId: undefined })}
+              href={href({ scope: t.key, page: undefined, group: undefined })}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 scope === t.key
                   ? "bg-brand text-white"
@@ -147,24 +138,23 @@ export default async function CasesPage({ searchParams }: { searchParams: Filter
 
         <form method="GET" className="flex items-center gap-2 flex-wrap">
           <input type="hidden" name="scope" value={scope} />
-          {scope === "team" && sup && (
-            <select name="teamId" defaultValue={searchParams.teamId ?? me.teamId ?? ""} className="input !py-1.5 text-xs w-44">
-              <option value="">Choose team…</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          )}
           {scope === "unit" && sup && (
-            <select name="unitId" defaultValue={searchParams.unitId ?? me.unitId ?? ""} className="input !py-1.5 text-xs w-48">
-              <option value="">Choose department…</option>
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
+            <select name="group" defaultValue={searchParams.group ?? ""} className="input !py-1.5 text-xs w-56">
+              <option value="">{me.unitId || me.teamId ? "My own department / team" : "Choose department or team…"}</option>
+              <optgroup label="Departments">
+                {units.map((u) => (
+                  <option key={u.id} value={`u:${u.id}`}>
+                    {u.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Teams">
+                {teams.map((x) => (
+                  <option key={x.id} value={`t:${x.id}`}>
+                    {x.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           )}
           <input

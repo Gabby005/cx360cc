@@ -38,15 +38,14 @@ export async function GET(req: NextRequest) {
       scope: sp.get("scope") ?? undefined,
       status: sp.get("status") ?? undefined,
       q: sp.get("q") ?? undefined,
-      teamId: sp.get("teamId") ?? undefined,
-      unitId: sp.get("unitId") ?? undefined,
+      group: sp.get("group") ?? undefined,
     };
     const scope = parseScope(filters.scope, ctx);
     filters.scope = scope;
 
     // Everyone may export their own / team / department tickets; the bank-wide list is supervisor-level.
     if (scope === "all" && !isSupervisor(ctx)) {
-      throw new ApiError(403, "Exporting every ticket requires a supervisor or admin role. Choose My tickets, My team or My department.");
+      throw new ApiError(403, "Exporting every ticket requires a supervisor or admin role. Choose My tickets or My team & department.");
     }
 
     // Date window: explicit from/to if given, otherwise the last 30 days. Never unbounded.
@@ -160,7 +159,7 @@ export async function GET(req: NextRequest) {
     ];
 
     const user = await prisma.user.findUnique({ where: { id: ctx.userId }, select: { name: true } });
-    const scopeLabel = { mine: "My tickets", logged: "Logged by me", assigned: "Assigned to me", team: "My team", unit: "My department", all: "All tickets" }[scope];
+    const scopeLabel = { mine: "My tickets", logged: "Logged by me", assigned: "Assigned to me", unit: "My team & department", all: "All tickets" }[scope];
     const about: Cell[][] = [
       ["Report", "CX360 tickets"],
       ["View", scopeLabel],
