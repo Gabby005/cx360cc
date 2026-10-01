@@ -4,6 +4,8 @@ import { STATUS_LABEL, OPEN_STATUSES } from "@/lib/case-status";
 import { parseRange } from "@/lib/analytics-range";
 import { AnalyticsCharts } from "@/components/analytics/analytics-charts";
 import { RangeFilter } from "@/components/analytics/range-filter";
+import { TopDriversPanel } from "@/components/analytics/top-drivers-panel";
+import { getTopDrivers, DRIVER_LIMIT } from "@/lib/analytics-drivers";
 
 const HOUR = 3_600_000;
 const MIN = 60_000;
@@ -46,7 +48,7 @@ export default async function AnalyticsPage({
   const now = new Date();
   const inWindow = (d: Date | null) => !!d && d >= start && d < end;
 
-  const [caseRows, openRows, feedbackRows, channelRows, units, memberships] = await Promise.all([
+  const [caseRows, openRows, feedbackRows, channelRows, units, memberships, topDrivers] = await Promise.all([
     // Every case created OR resolved in the window — one wide query, aggregated in JS below.
     prisma.case.findMany({
       where: {
@@ -62,7 +64,6 @@ export default async function AnalyticsPage({
         resolutionDueAt: true,
         assignedToId: true,
         escalatedUnitId: true,
-        caseCode: { select: { category: true } },
       },
       take: ROW_LIMIT,
     }),
@@ -91,6 +92,7 @@ export default async function AnalyticsPage({
       where: { tenantId: ctx.tenantId },
       select: { userId: true, user: { select: { name: true } }, team: { select: { name: true } } },
     }),
+    getTopDrivers(ctx.tenantId, start, end, DRIVER_LIMIT),
   ]);
 
   const truncated = caseRows.length >= ROW_LIMIT || openRows.length >= ROW_LIMIT;
@@ -254,20 +256,6 @@ export default async function AnalyticsPage({
     ces: { n: scores.CES.length, avg: round1(mean(scores.CES)) },
   };
 
-  // ---- Top drivers (complaints / requests / enquiries by category) ------------
-  function topN(type: "COMPLAINT" | "SERVICE_REQUEST" | "INQUIRY", n = 5) {
-    const counts = new Map<string, number>();
-    for (const c of createdIn) {
-      if (c.type !== type || !c.caseCode) continue;
-      counts.set(c.caseCode.category, (counts.get(c.caseCode.category) ?? 0) + 1);
-    }
-    return [...counts.entries()]
-      .map(([category, count]) => ({ category, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, n);
-  }
-  const topDrivers = { COMPLAINT: topN("COMPLAINT"), SERVICE_REQUEST: topN("SERVICE_REQUEST"), INQUIRY: topN("INQUIRY") };
-
   const canExport = ctx.role === "ADMIN" || ctx.role === "SUPERVISOR";
 
   return (
@@ -285,21 +273,30 @@ export default async function AnalyticsPage({
         </p>
       )}
 
-      <AnalyticsCharts
-        rangeLabel={range.label}
-        kpis={kpis}
-        volumeTrend={volumeTrend}
-        slaTrend={slaTrend}
-        statusBreakdown={statusBreakdown}
-        priorityBreakdown={priorityBreakdown}
-        aging={aging}
-        channelStats={channelStats}
-        agentStats={agentStats}
-        teamStats={teamStats}
-        feedback={feedback}
-        topDrivers={topDrivers}
-        departmentStats={departmentStats}
-      />
+      <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_380px] gap-4 items-start">
+          <AnalyticsCharts
+          rangeLabel={range.label}
+          kpis={kpis}
+          volumeTrend={volumeTrend}
+          slaTrend={slaTrend}
+          statusBreakdown={statusBreakdown}
+          priorityBreakdown={priorityBreakdown}
+          aging={aging}
+          channelStats={channelStats}
+          agentStats={agentStats}
+          teamStats={teamStats}
+          feedback={feedback}
+          departmentStats={departmentStats}
+        />
+        <div className="2xl:sticky 2xl:top-0">
+          <TopDriversPanel
+            drivers={topDrivers}
+            rangeLabel={range.label}
+            limit={DRIVER_LIMIT}
+            exportHref={canExport ? `/api/analytics/drivers-export?${new URLSearchParams(range.key === "custom" ? { range: "custom", from: range.from, to: range.to } : { range: range.key }).toString()}` : null}
+          />
+        </div>
+      </div>
     </div>
   );
 }

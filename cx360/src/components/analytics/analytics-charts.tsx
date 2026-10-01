@@ -25,7 +25,6 @@ const COLORS = {
 type VolumePoint = { date: string; created: number; resolved: number };
 type SlaPoint = { date: string; complianceRate: number };
 type BreakdownItem = { label: string; count: number };
-type DriverItem = { category: string; count: number };
 type DepartmentItem = { name: string; open: number; closed: number };
 type Kpis = {
   created: number;
@@ -81,7 +80,6 @@ export function AnalyticsCharts({
   slaTrend,
   statusBreakdown,
   priorityBreakdown,
-  topDrivers,
   departmentStats,
 }: {
   rangeLabel: string;
@@ -95,7 +93,6 @@ export function AnalyticsCharts({
   slaTrend: SlaPoint[];
   statusBreakdown: BreakdownItem[];
   priorityBreakdown: BreakdownItem[];
-  topDrivers: { COMPLAINT: DriverItem[]; SERVICE_REQUEST: DriverItem[]; INQUIRY: DriverItem[] };
   departmentStats: DepartmentItem[];
 }) {
   return (
@@ -296,18 +293,6 @@ export function AnalyticsCharts({
           </p>
         )}
       </div>
-
-      <div className="card p-5">
-        <h2 className="text-sm font-semibold mb-1">Top drivers</h2>
-        <p className="text-xs text-ink-950/50 dark:text-surface/50 mb-4">
-          Most common category, {rangeLabel}, by interaction type
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <DriverList title="Complaints" items={topDrivers.COMPLAINT} accent={COLORS.breach} />
-          <DriverList title="Requests" items={topDrivers.SERVICE_REQUEST} accent={COLORS.brand} />
-          <DriverList title="Enquiries" items={topDrivers.INQUIRY} accent={COLORS.ok} />
-        </div>
-      </div>
     </div>
   );
 }
@@ -368,35 +353,6 @@ function PerfTable({
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function DriverList({ title, items, accent }: { title: string; items: DriverItem[]; accent: string }) {
-  const max = Math.max(...items.map((i) => i.count), 1);
-  return (
-    <div>
-      <h3 className="text-xs font-semibold text-ink-950/50 dark:text-surface/50 mb-2 tracking-wide">{title}</h3>
-      {items.length === 0 ? (
-        <p className="text-xs text-ink-950/40 dark:text-surface/40">No data yet.</p>
-      ) : (
-        <ul className="space-y-2">
-          {items.map((item, i) => (
-            <li key={i}>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="truncate">{item.category}</span>
-                <span className="font-mono text-ink-950/50 dark:text-surface/50">{item.count}</span>
-              </div>
-              <div className="h-1.5 rounded-full bg-ink-950/5 dark:bg-surface/10 overflow-hidden">
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${(item.count / max) * 100}%`, backgroundColor: accent }}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
