@@ -86,7 +86,7 @@ export function BrandingClient({ initialLogo, initialColor }: { initialLogo: str
               </button>
             )}
             <p className="text-[11px] text-ink-950/50 dark:text-surface/50 mt-2">
-              Under 500KB. Square images work best (it's shown at 32×32 in the sidebar).
+              Under 500KB. Use a transparent PNG at least 400px wide for a sharp login logo. A square mark works best in the sidebar (shown small), while the login page shows it large.
             </p>
           </div>
         </div>

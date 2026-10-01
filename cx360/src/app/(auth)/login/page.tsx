@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { buildBrandStyleTag } from "@/lib/theme";
 import { LoginForm } from "@/components/auth/login-form";
 
-// Render per request so `next build` needs no database connection.
+// Reads the tenant from the DB on every request — keeps `next build` from needing
+// a database connection and keeps login branding fresh after admin changes.
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
@@ -16,25 +17,35 @@ export default async function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-surface p-4">
       <style dangerouslySetInnerHTML={{ __html: buildBrandStyleTag(tenant?.brandColor ?? "#5B5FEF") }} />
       <div className="w-full max-w-sm">
-        <div className="flex items-center justify-center gap-2 mb-8">
+        <div className="flex flex-col items-center justify-center mb-8 text-center">
           {tenant?.logoDataUrl ? (
+            // Large, uncropped logo — works for square marks and wide wordmarks alike.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={tenant.logoDataUrl} alt={tenant.name} className="w-9 h-9 rounded-lg object-cover" />
+            <img
+              src={tenant.logoDataUrl}
+              alt={tenant.name}
+              className="h-24 w-auto max-w-[280px] object-contain"
+            />
           ) : (
-            <div className="w-9 h-9 rounded-lg bg-brand text-white grid place-items-center font-semibold text-sm">
-              CX
-            </div>
+            <>
+              <div className="w-20 h-20 rounded-2xl bg-brand text-white grid place-items-center font-semibold text-2xl">
+                CX
+              </div>
+              <span className="font-semibold text-xl mt-3">{tenant?.name ?? "CX360"}</span>
+            </>
           )}
-          <span className="font-semibold text-lg">{tenant?.name ?? "CX360"}</span>
         </div>
 
         <LoginForm />
 
-        <p className="mt-6 text-center text-xs text-ink-950/45">
-          Demo: <code className="kbd">agent@demobank.cx360</code> /{" "}
-          <code className="kbd">supervisor@demobank.cx360</code> — password{" "}
-          <code className="kbd">demo1234</code>
-        </p>
+        {/* Demo logins are hidden by default. Set SHOW_DEMO_LOGINS=true in the host environment to show them. */}
+        {process.env.SHOW_DEMO_LOGINS === "true" && (
+          <p className="mt-6 text-center text-xs text-ink-950/45">
+            Demo: <code className="kbd">agent@demobank.cx360</code> /{" "}
+            <code className="kbd">supervisor@demobank.cx360</code> — password{" "}
+            <code className="kbd">demo1234</code>
+          </p>
+        )}
       </div>
     </div>
   );
