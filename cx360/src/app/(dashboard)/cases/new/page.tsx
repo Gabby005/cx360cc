@@ -14,12 +14,12 @@ export default async function NewCasePage({ searchParams }: { searchParams: { cu
     : null;
 
   return (
-    <div className="h-full overflow-y-auto p-6 max-w-2xl">
+    <div className="h-full overflow-y-auto p-6 max-w-[1400px]">
       <Link href="/cases" className="text-xs text-ink-950/50 dark:text-surface/50 hover:text-brand">
         ← All cases
       </Link>
       <h1 className="text-lg font-semibold mt-2 mb-1">Log a new case</h1>
-      <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-6">
+      <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-6 max-w-2xl">
         For complaints, requests, and enquiries raised directly with an agent — not just ones that arrived through
         the Inbox.
       </p>

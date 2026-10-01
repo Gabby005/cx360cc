@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
                 { lastName: { contains: q, mode: "insensitive" } },
                 { email: { contains: q, mode: "insensitive" } },
                 { phone: { contains: q } },
+                { products: { some: { accountRef: { contains: q } } } },
               ],
             }
           : {}),

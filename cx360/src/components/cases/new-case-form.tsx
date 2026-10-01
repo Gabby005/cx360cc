@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
+import { CustomerOverview } from "@/components/customers/customer-overview";
 import { CaseCodeSelect } from "@/components/cases/case-code-select";
 import { TransactionalToggle, UnitEscalationField } from "@/components/cases/transactional-fields";
 import { CASE_STATUSES, STATUS_LABEL, statusRequiresUnit } from "@/lib/case-status";
@@ -72,6 +73,7 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
   }
 
   return (
+    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,40rem)_minmax(0,1fr)] gap-6 items-start">
     <form onSubmit={submit} className="space-y-4">
       <div>
         <label className="block text-xs font-medium mb-1">Customer</label>
@@ -181,6 +183,11 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
         {saving ? "Creating…" : "Create case"}
       </button>
     </form>
+
+    <div className="xl:sticky xl:top-0">
+      <CustomerOverview customerId={customer?.id ?? null} />
+    </div>
+    </div>
   );
 }
 
@@ -213,7 +220,7 @@ function CustomerSearch({ onSelect }: { onSelect: (c: Customer) => void }) {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search customers by name, email, or phone…"
+          placeholder="Search by name, phone, email or account number…"
           className="input pl-9"
         />
       </div>
