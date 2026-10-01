@@ -20,6 +20,8 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "CX360 — One Customer. One View. Every Interaction.",
   description: "Enterprise contact centre CRM and customer engagement platform.",
+  // Browser-tab icon: the bank's uploaded logo (see src/app/brand-icon/route.ts).
+  icons: { icon: "/brand-icon", shortcut: "/brand-icon", apple: "/brand-icon" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
