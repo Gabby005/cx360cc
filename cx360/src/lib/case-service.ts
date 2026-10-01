@@ -186,6 +186,7 @@ export async function createCase(tx: Tx, input: CreateCaseInput) {
       transactionAmount: input.transactionAmount,
       transactionCurrency: input.transactionCurrency,
       queueId: input.queueId,
+      createdById: input.actorId,
       slaPolicyId: policy?.id,
       responseDueAt: policy ? new Date(now.getTime() + policy.responseMinutes * 60_000) : null,
       resolutionDueAt: policy ? new Date(now.getTime() + policy.resolutionMinutes * 60_000) : null,

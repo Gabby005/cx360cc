@@ -15,16 +15,31 @@ const ROLE_PILL: Record<string, string> = {
 type Member = {
   id: string; // membership id
   role: (typeof ROLES)[number];
+  teamId: string | null;
+  unitId: string | null;
   user: { id: string; name: string; email: string; createdAt: string };
 };
+type Option = { id: string; name: string };
 
-export function UsersClient({ currentUserId, initialMembers }: { currentUserId: string; initialMembers: Member[] }) {
+export function UsersClient({
+  currentUserId,
+  initialMembers,
+  initialTeams,
+  units,
+}: {
+  currentUserId: string;
+  initialMembers: Member[];
+  initialTeams: Option[];
+  units: Option[];
+}) {
   const [members, setMembers] = useState(initialMembers);
+  const [teams, setTeams] = useState(initialTeams);
   const [showForm, setShowForm] = useState(false);
 
   return (
     <div>
-      <div className="flex justify-end mb-3">
+      <div className="flex justify-between items-start gap-3 mb-3">
+        <NewTeam onCreated={(t) => setTeams((prev) => [...prev, t].sort((a, b) => a.name.localeCompare(b.name)))} />
         <button onClick={() => setShowForm((v) => !v)} className="btn-primary text-xs">
           <Plus size={14} /> New user
         </button>
@@ -44,7 +59,9 @@ export function UsersClient({ currentUserId, initialMembers }: { currentUserId: 
             key={m.id}
             member={m}
             isSelf={m.user.id === currentUserId}
-            onRoleChanged={(role) => setMembers((prev) => prev.map((p) => (p.id === m.id ? { ...p, role } : p)))}
+            teams={teams}
+            units={units}
+            onChanged={(patch) => setMembers((prev) => prev.map((p) => (p.id === m.id ? { ...p, ...patch } : p)))}
           />
         ))}
         {members.length === 0 && (
@@ -58,31 +75,36 @@ export function UsersClient({ currentUserId, initialMembers }: { currentUserId: 
 function MemberRow({
   member,
   isSelf,
-  onRoleChanged,
+  teams,
+  units,
+  onChanged,
 }: {
   member: Member;
   isSelf: boolean;
-  onRoleChanged: (role: Member["role"]) => void;
+  teams: Option[];
+  units: Option[];
+  onChanged: (patch: Partial<Pick<Member, "role" | "teamId" | "unitId">>) => void;
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function changeRole(role: Member["role"]) {
+  async function update(patch: Partial<Pick<Member, "role" | "teamId" | "unitId">>) {
     setError(null);
     setSaving(true);
     const res = await fetch(`/api/admin/users/${member.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role }),
+      body: JSON.stringify(patch),
     });
     setSaving(false);
     if (!res.ok) {
-      const { error: msg } = await res.json().catch(() => ({ error: "Failed to update role" }));
+      const { error: msg } = await res.json().catch(() => ({ error: "Failed to update" }));
       setError(msg);
       return;
     }
-    onRoleChanged(role);
+    onChanged(patch);
   }
+  const changeRole = (role: Member["role"]) => update({ role });
 
   return (
     <div className="p-4 flex items-center gap-3 text-sm">
@@ -94,6 +116,34 @@ function MemberRow({
         <div className="text-xs text-ink-950/50 dark:text-surface/50 truncate">{member.user.email}</div>
         {error && <div className="text-xs text-sla-breach mt-0.5">{error}</div>}
       </div>
+      <select
+        value={member.teamId ?? ""}
+        onChange={(e) => update({ teamId: e.target.value || null })}
+        disabled={saving}
+        title="Team"
+        className="input !py-1 text-xs w-36 shrink-0"
+      >
+        <option value="">No team</option>
+        {teams.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+          </option>
+        ))}
+      </select>
+      <select
+        value={member.unitId ?? ""}
+        onChange={(e) => update({ unitId: e.target.value || null })}
+        disabled={saving}
+        title="Department"
+        className="input !py-1 text-xs w-40 shrink-0"
+      >
+        <option value="">No department</option>
+        {units.map((x) => (
+          <option key={x.id} value={x.id}>
+            {x.name}
+          </option>
+        ))}
+      </select>
       <span className={`${ROLE_PILL[member.role]} shrink-0`}>{member.role}</span>
       {!isSelf && (
         <select
@@ -110,6 +160,43 @@ function MemberRow({
         </select>
       )}
     </div>
+  );
+}
+
+function NewTeam({ onCreated }: { onCreated: (t: Option) => void }) {
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setError(null);
+    setSaving(true);
+    const res = await fetch("/api/admin/teams", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const { error: msg } = await res.json().catch(() => ({ error: "Failed to create team" }));
+      setError(msg);
+      return;
+    }
+    const { team } = await res.json();
+    onCreated(team);
+    setName("");
+  }
+
+  return (
+    <form onSubmit={add} className="flex items-center gap-2 flex-wrap">
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New team name" className="input !py-1.5 text-xs w-48" />
+      <button type="submit" disabled={saving || !name.trim()} className="btn-secondary text-xs">
+        Add team
+      </button>
+      {error && <span className="text-xs text-sla-breach">{error}</span>}
+    </form>
   );
 }
 

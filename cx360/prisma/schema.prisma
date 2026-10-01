@@ -56,6 +56,7 @@ model User {
 
   memberships       Membership[]
   assignedCases     Case[]           @relation("AssignedAgent")
+  createdCases      Case[]           @relation("CaseCreator")
   interactions      Interaction[]
   qaReviewsGiven    QaReview[]       @relation("Reviewer")
   qaReviewsReceived QaReview[]       @relation("ReviewedAgent")
@@ -80,6 +81,8 @@ model Membership {
   tenant Tenant @relation(fields: [tenantId], references: [id])
   team   Team?  @relation(fields: [teamId], references: [id])
   teamId String?
+  unit   Unit?  @relation(fields: [unitId], references: [id]) // the department this person works in
+  unitId String?
 
   @@unique([userId, tenantId])
 }
@@ -278,6 +281,7 @@ model Unit {
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   cases  Case[]
+  members Membership[]
 
   @@unique([tenantId, email])
 }
@@ -321,6 +325,7 @@ model Case {
   transactionCurrency String?  // "NGN" | "USD" | "GBP" | "EUR" — kept as a plain string so adding a currency doesn't need a migration
   escalatedUnitId     String?
   escalatedAt         DateTime?
+  createdById  String?    // who logged the case (null for API-created cases)
   queueId      String?
   assignedToId String?
   slaPolicyId  String?
@@ -336,6 +341,7 @@ model Case {
   tenant      Tenant        @relation(fields: [tenantId], references: [id])
   customer    Customer      @relation(fields: [customerId], references: [id])
   assignedTo  User?         @relation("AssignedAgent", fields: [assignedToId], references: [id])
+  createdBy   User?         @relation("CaseCreator", fields: [createdById], references: [id])
   queue       Queue?        @relation(fields: [queueId], references: [id])
   slaPolicy   SlaPolicy?    @relation(fields: [slaPolicyId], references: [id])
   caseCode    CaseCode?     @relation(fields: [caseCodeId], references: [id])
@@ -350,6 +356,10 @@ model Case {
   @@index([tenantId, status])
   @@index([tenantId, assignedToId])
   @@index([tenantId, priority, status])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, createdById, createdAt])
+  @@index([tenantId, assignedToId, createdAt])
+  @@index([tenantId, escalatedUnitId, createdAt])
 }
 
 // Files attached to a case. Stored as base64 data URIs directly on the
@@ -584,4 +594,5 @@ model AuditLog {
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId, entity, entityId])
+  @@index([tenantId, actorId, action, createdAt])
 }

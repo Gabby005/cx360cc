@@ -20,6 +20,8 @@ type CaseRow = {
   slaPolicy: SlaTarget | null;
   customer: { firstName: string; lastName: string; email: string | null };
   assignedTo: { name: string } | null;
+  createdBy: { name: string } | null;
+  escalatedUnit: { name: string } | null;
 };
 
 function PriorityPill({ priority }: { priority: string }) {
@@ -35,7 +37,7 @@ function toCsvValue(v: string): string {
 }
 
 function downloadCsv(rows: CaseRow[]) {
-  const headers = ["Case Number", "Subject", "Customer", "Email", "Priority", "Status", "Assigned To", "Created", "Resolved", "Closed"];
+  const headers = ["Case Number", "Subject", "Customer", "Email", "Priority", "Status", "Assigned To", "Logged By", "Department", "Created", "Resolved", "Closed"];
   const lines = [
     headers.join(","),
     ...rows.map((c) =>
@@ -47,6 +49,8 @@ function downloadCsv(rows: CaseRow[]) {
         c.priority,
         STATUS_LABEL[c.status] ?? c.status,
         c.assignedTo?.name ?? "Unassigned",
+        c.createdBy?.name ?? "",
+        c.escalatedUnit?.name ?? "",
         new Date(c.createdAt).toLocaleString(),
         c.resolvedAt ? new Date(c.resolvedAt).toLocaleString() : "",
         c.closedAt ? new Date(c.closedAt).toLocaleString() : "",
@@ -90,11 +94,13 @@ export function CasesTable({ cases }: { cases: CaseRow[] }) {
     <div>
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs text-ink-950/50 dark:text-surface/50">
-          {selected.size > 0 ? `${selected.size} selected` : `${cases.length} in view`}
+          {selected.size > 0 ? `${selected.size} selected` : `${cases.length} on this page`}
         </p>
-        <button onClick={() => downloadCsv(exportRows)} disabled={cases.length === 0} className="btn-secondary text-xs">
-          <Download size={13} /> Export CSV {selected.size > 0 ? `(${selected.size})` : "(all in view)"}
-        </button>
+        {selected.size > 0 && (
+          <button onClick={() => downloadCsv(exportRows)} className="btn-secondary text-xs">
+            <Download size={13} /> Export selected ({selected.size})
+          </button>
+        )}
       </div>
 
       <div className="card overflow-hidden">
@@ -116,7 +122,9 @@ export function CasesTable({ cases }: { cases: CaseRow[] }) {
               <th className="text-left font-medium px-3 py-3">Customer</th>
               <th className="text-left font-medium px-3 py-3">Priority</th>
               <th className="text-left font-medium px-3 py-3">Status</th>
+              <th className="text-left font-medium px-3 py-3">Logged by</th>
               <th className="text-left font-medium px-3 py-3">Assigned</th>
+              <th className="text-left font-medium px-3 py-3">Department</th>
               <th className="text-left font-medium px-3 py-3">SLA</th>
             </tr>
           </thead>
@@ -158,7 +166,13 @@ export function CasesTable({ cases }: { cases: CaseRow[] }) {
                   <span className={STATUS_PILL[c.status] ?? "pill-neutral"}>{STATUS_LABEL[c.status]}</span>
                 </td>
                 <td className="px-3 py-3.5 text-ink-950/70 dark:text-surface/70">
+                  {c.createdBy?.name ?? <span className="text-ink-950/35 dark:text-surface/35">—</span>}
+                </td>
+                <td className="px-3 py-3.5 text-ink-950/70 dark:text-surface/70">
                   {c.assignedTo?.name ?? <span className="text-ink-950/35 dark:text-surface/35">Unassigned</span>}
+                </td>
+                <td className="px-3 py-3.5 text-ink-950/70 dark:text-surface/70">
+                  {c.escalatedUnit?.name ?? <span className="text-ink-950/35 dark:text-surface/35">—</span>}
                 </td>
                 <td className="px-3 py-3.5">
                   {c.slaPolicy ? (
@@ -176,7 +190,7 @@ export function CasesTable({ cases }: { cases: CaseRow[] }) {
             ))}
             {cases.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-6 py-16 text-center text-sm text-ink-950/50 dark:text-surface/50">
+                <td colSpan={9} className="px-6 py-16 text-center text-sm text-ink-950/50 dark:text-surface/50">
                   No cases match this filter.
                 </td>
               </tr>
