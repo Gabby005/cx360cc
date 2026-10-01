@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 import { logCaseActivity, notifyCaseClosed } from "@/lib/case-service";
 
+// Reads the signed-in session, so it must never be pre-rendered at build time.
+export const dynamic = "force-dynamic";
+
 const filterSchema = z.object({
   fromDate: z.string(),
   toDate: z.string(),

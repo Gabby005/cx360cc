@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 import { parseRange } from "@/lib/analytics-range";
 
+// Reads the signed-in session, so it must never be pre-rendered at build time.
+export const dynamic = "force-dynamic";
+
 const MAX_ROWS = 50_000;
 
 /** CSV-escape a cell, and neutralise spreadsheet formula injection (=, +, -, @ at the start). */

@@ -4,6 +4,9 @@ import { parseRange } from "@/lib/analytics-range";
 import { getTopDrivers, DRIVER_LIMIT, type DriverList } from "@/lib/analytics-drivers";
 import { buildXlsx, type Sheet } from "@/lib/xlsx-lite";
 
+// Reads the signed-in session, so it must never be pre-rendered at build time.
+export const dynamic = "force-dynamic";
+
 function toSheet(name: string, list: DriverList): Sheet {
   return {
     name,

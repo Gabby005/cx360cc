@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
 import { getAccountsForCustomer, getRecentTransactions } from "@/lib/core-banking";
 
+// Reads the signed-in session, so it must never be pre-rendered at build time.
+export const dynamic = "force-dynamic";
+
 const DAY = 86_400_000;
 
 /**

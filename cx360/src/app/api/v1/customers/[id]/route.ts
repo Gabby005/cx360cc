@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { requireApiKey } from "@/lib/api-auth";
 import { ApiError } from "@/lib/tenant";
 
+// Reads the signed-in session, so it must never be pre-rendered at build time.
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { tenantId } = await requireApiKey(req);

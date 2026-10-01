@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
 
+// Reads the signed-in session, so it must never be pre-rendered at build time.
+export const dynamic = "force-dynamic";
+
 /** Active units — populates the "Escalate to" dropdown on transactional cases. */
 export async function GET() {
   try {

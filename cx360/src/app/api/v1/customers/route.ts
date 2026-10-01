@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { requireApiKey } from "@/lib/api-auth";
 import { ApiError } from "@/lib/tenant";
 
+// Reads the signed-in session, so it must never be pre-rendered at build time.
+export const dynamic = "force-dynamic";
+
 /**
  * External, API-key-authenticated surface (v1). This is the integration
  * point for core banking / ERP systems per the brief's Integration Hub

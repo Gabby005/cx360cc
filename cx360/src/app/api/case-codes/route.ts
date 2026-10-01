@@ -3,6 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
 
+// Reads the signed-in session, so it must never be pre-rendered at build time.
+export const dynamic = "force-dynamic";
+
 const typeSchema = z.enum(["SERVICE_REQUEST", "COMPLAINT", "INQUIRY", "INCIDENT"]);
 
 /**

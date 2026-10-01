@@ -3,6 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 
+// Reads the signed-in session, so it must never be pre-rendered at build time.
+export const dynamic = "force-dynamic";
+
 const TYPES = ["SERVICE_REQUEST", "COMPLAINT", "INQUIRY", "INCIDENT"] as const;
 
 export async function GET(req: NextRequest) {

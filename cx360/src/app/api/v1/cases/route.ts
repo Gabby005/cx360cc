@@ -6,6 +6,9 @@ import { ApiError } from "@/lib/tenant";
 import { createCase } from "@/lib/case-service";
 import { statusRequiresUnit } from "@/lib/case-status";
 
+// Reads the signed-in session, so it must never be pre-rendered at build time.
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     const { tenantId } = await requireApiKey(req);

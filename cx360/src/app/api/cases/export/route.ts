@@ -6,6 +6,9 @@ import { STATUS_LABEL } from "@/lib/case-status";
 import { buildXlsx, type Cell } from "@/lib/xlsx-lite";
 import { buildCaseWhere, getMe, isSupervisor, parseScope, EXPORT_MAX_ROWS, type Filters } from "@/lib/case-scope";
 
+// Reads the signed-in session, so it must never be pre-rendered at build time.
+export const dynamic = "force-dynamic";
+
 const TZ = process.env.APP_TIMEZONE || "Africa/Lagos";
 const BATCH = 2000;
 const EXPORTS_PER_WINDOW = 6; // per person, per 10 minutes — protects the database from repeated big downloads
