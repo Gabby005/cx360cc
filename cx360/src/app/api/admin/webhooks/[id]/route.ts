@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
+import { recordAudit } from "@/lib/audit";
 
 const patchSchema = z.object({ active: z.boolean() });
 
@@ -15,6 +16,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const updated = await prisma.webhookSubscription.update({ where: { id: existing.id }, data: { active: body.active } });
+    await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: updated.active ? "webhook_enabled" : "webhook_disabled", entity: "Webhook", entityId: existing.id, after: { url: existing.url } });
     return NextResponse.json({ webhook: updated });
   } catch (err) {
     if (err instanceof ApiError) return NextResponse.json({ error: err.message }, { status: err.status });
@@ -33,6 +35,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     await prisma.webhookSubscription.delete({ where: { id: existing.id } });
+    await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: "webhook_deleted", entity: "Webhook", entityId: existing.id, before: { url: existing.url, events: existing.events } });
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof ApiError) return NextResponse.json({ error: err.message }, { status: err.status });

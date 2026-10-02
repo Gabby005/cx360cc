@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
+import { recordAudit } from "@/lib/audit";
 
 const patchSchema = z
   .object({
@@ -46,6 +47,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       include: { user: { select: { id: true, name: true, email: true, createdAt: true } } },
     });
 
+    await recordAudit({
+      tenantId: ctx.tenantId,
+      actorId: ctx.userId,
+      action: body.role !== undefined && body.role !== existing.role ? "role_changed" : "user_updated",
+      entity: "User",
+      entityId: existing.userId,
+      before: { role: existing.role, teamId: existing.teamId, unitId: existing.unitId },
+      after: { role: membership.role, teamId: membership.teamId, unitId: membership.unitId },
+    });
     return NextResponse.json({ member: membership });
   } catch (err) {
     if (err instanceof ApiError) return NextResponse.json({ error: err.message }, { status: err.status });

@@ -39,6 +39,11 @@ edit("model", "Tenant", "Tenant.customerSummaryFields", /customerSummaryFields\s
 edit("model", "AuditLog", "AuditLog index", /actorId, action, createdAt/,
   beforeClose("  @@index([tenantId, actorId, action, createdAt])"));
 
+edit("model", "Case", "Case.slaLastFlag", /slaLastFlag\s+String\?/,
+  after(/^[ \t]*slaPolicyId\s+String\?.*$/m, "  slaLastFlag   String?   // last SLA stage:level an event was emitted for, so sweeps never repeat events"));
+edit("model", "AuditLog", "AuditLog date index", /@@index\(\[tenantId, createdAt\]\)/,
+  beforeClose("  @@index([tenantId, createdAt])"));
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");

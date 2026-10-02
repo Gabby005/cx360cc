@@ -2,17 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeSlaClock } from "@/lib/sla";
 
+// Never pre-rendered; always runs on demand.
+export const dynamic = "force-dynamic";
+
+const BATCH = 500; // cases read per round trip
+const MAX_SCAN = 5000; // cases examined per run, so one run always finishes quickly; the next run continues
+
 /**
  * Called by a scheduler (Netlify Scheduled Function, or any external cron
  * hitting this URL with the CRON_SECRET) every 1-5 minutes. For each open
- * case with an active SLA clock, computes current status and emits
- * sla.warning / sla.breached events the first time each threshold is
- * crossed — tracked via a lightweight marker on the Case row so events
- * aren't re-emitted on every sweep.
+ * case with an SLA clock it works out the current level (warning, escalate,
+ * breach) and emits sla.warning / sla.breached ONCE per stage and level.
  *
- * This endpoint is intentionally idempotent-safe: running it twice in the
- * same minute does not double-fire events, because it only acts on cases
- * whose current computed status differs from what was last flagged.
+ * "Once" is tracked in Case.slaLastFlag ("response:warning",
+ * "resolution:breach", ...). A case is only acted on when its level changes,
+ * so running the sweep every minute no longer creates a new event every
+ * minute, and cases that have already reached their final level
+ * ("resolution:breach") are skipped by the query entirely.
  */
 export async function POST(req: NextRequest) {
   const secret = req.headers.get("x-cron-secret");
@@ -20,39 +26,71 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const openCases = await prisma.case.findMany({
-    where: { status: { in: ["NEW", "OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY", "ESCALATED"] }, slaPolicyId: { not: null } },
-    include: { slaPolicy: true },
-  });
+  const where = {
+    status: { in: ["NEW", "OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY", "ESCALATED"] as ("NEW" | "OPEN" | "PENDING_CUSTOMER" | "PENDING_BANK" | "PENDING_THIRD_PARTY" | "ESCALATED")[] },
+    slaPolicyId: { not: null },
+    OR: [{ slaLastFlag: null }, { slaLastFlag: { not: "resolution:breach" } }],
+  };
 
+  let scanned = 0;
   let warnings = 0;
   let breaches = 0;
+  let cursor: string | undefined;
 
-  for (const c of openCases) {
-    if (!c.slaPolicy) continue;
-    const clock = computeSlaClock({
-      createdAt: c.createdAt,
-      respondedAt: c.respondedAt,
-      resolvedAt: c.resolvedAt,
-      policy: c.slaPolicy,
+  while (scanned < MAX_SCAN) {
+    const rows = await prisma.case.findMany({
+      where,
+      orderBy: { id: "asc" },
+      take: BATCH,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: {
+        id: true,
+        tenantId: true,
+        status: true,
+        createdAt: true,
+        respondedAt: true,
+        resolvedAt: true,
+        slaLastFlag: true,
+        slaPolicy: { select: { responseMinutes: true, resolutionMinutes: true, warningThresholdPct: true, escalationThresholdPct: true } },
+      },
     });
+    if (rows.length === 0) break;
 
-    if (clock.status === "breach" || clock.status === "warning" || clock.status === "escalate") {
-      await prisma.event.create({
-        data: {
-          tenantId: c.tenantId,
-          type: clock.status === "breach" ? "sla.breached" : "sla.warning",
-          payload: { caseId: c.id, stage: clock.stage, elapsedPct: clock.elapsedPct },
-        },
-      });
-      if (clock.status === "breach") breaches++;
-      else warnings++;
+    const events: { tenantId: string; type: string; payload: { caseId: string; stage: string; level: string; elapsedPct: number } }[] = [];
+    const flagGroups = new Map<string, string[]>();
+    const escalateIds: string[] = [];
 
-      if (clock.status === "breach" && c.status !== "ESCALATED") {
-        await prisma.case.update({ where: { id: c.id }, data: { status: "ESCALATED" } });
+    for (const c of rows) {
+      if (!c.slaPolicy) continue;
+      const clock = computeSlaClock({ createdAt: c.createdAt, respondedAt: c.respondedAt, resolvedAt: c.resolvedAt, policy: c.slaPolicy });
+      if (clock.status === "ok") continue;
+
+      const flag = `${clock.stage}:${clock.status}`;
+      if (flag === c.slaLastFlag) continue; // already announced at this level
+
+      const breached = clock.status === "breach";
+      events.push({ tenantId: c.tenantId, type: breached ? "sla.breached" : "sla.warning", payload: { caseId: c.id, stage: clock.stage, level: clock.status, elapsedPct: clock.elapsedPct } });
+      flagGroups.set(flag, [...(flagGroups.get(flag) ?? []), c.id]);
+      if (breached) {
+        breaches++;
+        if (c.status !== "ESCALATED") escalateIds.push(c.id);
+      } else {
+        warnings++;
       }
     }
+
+    if (events.length > 0) {
+      await prisma.$transaction([
+        prisma.event.createMany({ data: events }),
+        ...[...flagGroups.entries()].map(([flag, ids]) => prisma.case.updateMany({ where: { id: { in: ids } }, data: { slaLastFlag: flag } })),
+        ...(escalateIds.length ? [prisma.case.updateMany({ where: { id: { in: escalateIds } }, data: { status: "ESCALATED" } })] : []),
+      ]);
+    }
+
+    scanned += rows.length;
+    cursor = rows[rows.length - 1].id;
+    if (rows.length < BATCH) break;
   }
 
-  return NextResponse.json({ scanned: openCases.length, warnings, breaches });
+  return NextResponse.json({ scanned, warnings, breaches });
 }

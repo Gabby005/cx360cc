@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 import { generateTempPassword, hashPassword } from "@/lib/password";
+import { recordAudit } from "@/lib/audit";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
 export const dynamic = "force-dynamic";
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
         data: { userId: existingUser.id, tenantId: ctx.tenantId, role: body.role, ...placement },
         include: { user: { select: { id: true, name: true, email: true, createdAt: true } } },
       });
+      await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: "user_added", entity: "User", entityId: existingUser.id, after: { email: body.email, role: body.role, ...placement } });
       return NextResponse.json({ member: membership }, { status: 201 });
     }
 
@@ -76,6 +78,8 @@ export async function POST(req: NextRequest) {
       });
       return membership;
     });
+
+    await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: "user_created", entity: "User", entityId: result.user.id, after: { email: body.email, role: body.role, ...placement } });
 
     // Temporary password is returned exactly once, to the admin who
     // created this account, and never stored or logged in the clear —

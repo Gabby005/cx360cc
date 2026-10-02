@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
+import { recordAudit } from "@/lib/audit";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
 export const dynamic = "force-dynamic";
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
     if (existing) throw new ApiError(409, "A team with that name already exists.");
 
     const team = await prisma.team.create({ data: { tenantId: ctx.tenantId, name }, select: { id: true, name: true } });
+    await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: "team_created", entity: "Team", entityId: team.id, after: { name: team.name } });
     return NextResponse.json({ team }, { status: 201 });
   } catch (err) {
     return handleError(err);

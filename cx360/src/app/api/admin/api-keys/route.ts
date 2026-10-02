@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 import { generateApiKey } from "@/lib/api-key";
+import { recordAudit } from "@/lib/audit";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
 export const dynamic = "force-dynamic";
@@ -34,6 +35,8 @@ export async function POST(req: NextRequest) {
     const key = await prisma.apiKey.create({
       data: { tenantId: ctx.tenantId, name: body.name, keyHash: hash },
     });
+
+    await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: "api_key_created", entity: "ApiKey", entityId: key.id, after: { name: key.name } });
 
     // The raw key is returned exactly once, in this response, and never
     // again — only its hash is persisted.

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 import { isValidHexColor } from "@/lib/theme";
+import { recordAudit } from "@/lib/audit";
 
 // Base64 data URI, capped generously — this is stored directly in the
 // Tenant row since no object storage (S3/Cloudinary/etc.) is configured
@@ -38,6 +39,14 @@ export async function PATCH(req: NextRequest) {
       data: body,
     });
 
+    await recordAudit({
+      tenantId: ctx.tenantId,
+      actorId: ctx.userId,
+      action: "settings_updated",
+      entity: "Tenant",
+      entityId: ctx.tenantId,
+      after: Object.fromEntries(Object.entries(body).map(([k, v]) => [k, k === "logoDataUrl" ? (v ? "(logo updated)" : "(logo removed)") : v])),
+    });
     return NextResponse.json({ tenant });
   } catch (err) {
     if (err instanceof ApiError) return NextResponse.json({ error: err.message }, { status: err.status });

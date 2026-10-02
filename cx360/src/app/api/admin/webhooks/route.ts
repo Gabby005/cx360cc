@@ -3,6 +3,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
+import { recordAudit } from "@/lib/audit";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
 export const dynamic = "force-dynamic";
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
       data: { tenantId: ctx.tenantId, url: body.url, events: body.events, secret },
     });
 
+    await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: "webhook_created", entity: "Webhook", entityId: webhook.id, after: { url: body.url, events: body.events } });
     return NextResponse.json({ webhook }, { status: 201 });
   } catch (err) {
     return handleError(err);

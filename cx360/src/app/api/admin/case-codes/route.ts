@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
+import { recordAudit } from "@/lib/audit";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
 export const dynamic = "force-dynamic";
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     const code = await prisma.caseCode.create({ data: { ...body, tenantId: ctx.tenantId } });
+    await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: "case_code_created", entity: "CaseCode", entityId: code.id, after: { code: code.code, category: code.category, subcategory: code.subcategory } });
     return NextResponse.json({ code }, { status: 201 });
   } catch (err) {
     return handleError(err);

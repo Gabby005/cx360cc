@@ -31,8 +31,7 @@ export default async function AdminPage() {
         </Link>
       </div>
       <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-6">
-        SLA policy shown below is live. Full audit log viewer is Phase 2 — API keys and webhooks live in the
-        Integration Hub.
+        Organisation settings, people, SLA targets and the audit log. API keys and webhooks live in the Integration Hub.
       </p>
 
       <section className="mb-6">
@@ -65,7 +64,12 @@ export default async function AdminPage() {
       </section>
 
       <section className="mb-6">
-        <h2 className="text-sm font-semibold mb-2">SLA policies</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold">SLA policies</h2>
+          <Link href="/admin/sla" className="text-xs text-brand hover:underline">
+            Edit targets →
+          </Link>
+        </div>
         <div className="card divide-y divide-line-light dark:divide-line-dark">
           {policies.map((p) => (
             <div key={p.id} className="p-4 flex items-center justify-between text-sm">
@@ -113,6 +117,19 @@ export default async function AdminPage() {
         </div>
         <div className="card p-4 text-sm text-ink-950/60 dark:text-surface/60">
           Department email addresses that transactional cases can be escalated to on submission.
+        </div>
+      </section>
+
+      <section className="mt-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold">Audit log</h2>
+          <Link href="/admin/audit" className="text-xs text-brand hover:underline">
+            View log →
+          </Link>
+        </div>
+        <div className="card p-4 text-sm text-ink-950/60 dark:text-surface/60">
+          Who changed what, and when — tickets, users and roles, settings, integrations and report downloads. Filter by person, area or action, and
+          download to Excel.
         </div>
       </section>
 

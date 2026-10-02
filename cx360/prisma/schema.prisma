@@ -330,6 +330,7 @@ model Case {
   queueId      String?
   assignedToId String?
   slaPolicyId  String?
+  slaLastFlag   String?   // last SLA stage:level an event was emitted for, so sweeps never repeat events
   responseDueAt   DateTime?
   resolutionDueAt DateTime?
   respondedAt     DateTime?
@@ -596,4 +597,5 @@ model AuditLog {
 
   @@index([tenantId, entity, entityId])
   @@index([tenantId, actorId, action, createdAt])
+  @@index([tenantId, createdAt])
 }
