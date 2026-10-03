@@ -26,8 +26,8 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="card p-7">
-      <h1 className="text-lg font-semibold mb-1">Sign in</h1>
-      <p className="text-sm text-ink-950/60 mb-6">Use your agent or admin credentials.</p>
+      <h2 className="text-lg font-semibold mb-1">Sign in</h2>
+      <p className="text-sm text-ink-950/60 mb-6">Use your work email and password.</p>
 
       <label className="block text-sm font-medium mb-1.5" htmlFor="email">
         Work email

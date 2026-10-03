@@ -11,7 +11,13 @@ export type SendNotificationInput = {
   subject?: string; // email only
   message: string;
   relatedCaseId?: string;
+  /** Copied addresses (email only). */
+  cc?: string[];
+  /** Which template this came from, e.g. "case.opened.email" — lets the log be filtered and escalations be traced. */
+  kind?: string;
 };
+
+const joinCc = (cc?: string[]) => (cc && cc.length ? cc.join(", ") : undefined);
 
 /**
  * The single layer every notification in CX360 routes through — customer
@@ -32,7 +38,7 @@ export type SendNotificationInput = {
  * "sent"/"failed" based on the provider's response.
  */
 export async function sendNotification(tx: Tx, input: SendNotificationInput): Promise<{ ok: boolean }> {
-  console.log(`[notification:${input.channel}] to=${input.to} ${input.subject ? `subject="${input.subject}" ` : ""}message="${input.message}"`);
+  console.log(`[notification:${input.channel}] to=${input.to}${input.cc?.length ? ` cc=${input.cc.join(",")}` : ""} ${input.subject ? `subject="${input.subject}" ` : ""}message="${input.message}"`);
 
   await tx.notificationLog.create({
     data: {
@@ -42,6 +48,8 @@ export async function sendNotification(tx: Tx, input: SendNotificationInput): Pr
       subject: input.subject,
       message: input.message,
       relatedCaseId: input.relatedCaseId,
+      cc: joinCc(input.cc),
+      kind: input.kind,
       status: "logged",
     },
   });
@@ -66,6 +74,8 @@ export async function sendNotificationsBulk(tx: Tx, inputs: SendNotificationInpu
       subject: i.subject,
       message: i.message,
       relatedCaseId: i.relatedCaseId,
+      cc: joinCc(i.cc),
+      kind: i.kind,
       status: "logged",
     })),
   });

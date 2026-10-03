@@ -47,6 +47,38 @@ edit("model", "AuditLog", "AuditLog date index", /@@index\(\[tenantId, createdAt
 edit("model", "Tenant", "Tenant.businessHours", /businessHours\s+Json\?/,
   after(/^[ \t]*customerSummaryFields\s+Json\?.*$/m, "  businessHours Json?     // {timezone, days:{mon..sun:{open,close}|null}, holidays:[{date,name}]} — when SLA clocks run"));
 
+function ensureModel(name, text) {
+  if (new RegExp(`^model ${name} \\{`, "m").test(s)) return log.push(`= model ${name} (already there)`);
+  s = s.replace(/\s*$/, "\n\n") + text.trim() + "\n";
+  log.push(`+ model ${name}`);
+}
+
+edit("model", "Tenant", "Tenant.notificationSettings", /notificationSettings\s+Json\?/,
+  after(/^[ \t]*businessHours\s+Json\?.*$/m, "  notificationSettings Json? // {sla:{enabledSince,trigger,priorities,level1,level2}} — SLA escalation ladder"));
+edit("model", "Tenant", "Tenant.notificationTemplates", /notificationTemplates\s+NotificationTemplate\[\]/,
+  after(/^[ \t]*notificationLogs\s+NotificationLog\[\].*$/m, "  notificationTemplates NotificationTemplate[]"));
+edit("model", "NotificationLog", "NotificationLog.kind/cc", /kind\s+String\?/,
+  after(/^[ \t]*status\s+String\s+@default\("logged"\).*$/m, "  kind          String?  // template key, e.g. case.opened.email, sla.level1.email\n  cc            String?  // copied addresses, comma separated"));
+edit("model", "NotificationLog", "NotificationLog case index", /\[tenantId, relatedCaseId\]/,
+  beforeClose("  @@index([tenantId, relatedCaseId])"));
+edit("model", "Case", "Case.slaBreachedAt/slaEscalationLevel", /slaEscalationLevel\s+Int/,
+  after(/^[ \t]*slaLastFlag\s+String\?.*$/m, "  slaBreachedAt DateTime? // when the SLA was first exceeded\n  slaEscalationLevel Int @default(0) // 0 none, 1 manager one notified, 2 manager two notified"));
+ensureModel("NotificationTemplate", `
+model NotificationTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  key         String   // e.g. case.opened.email, sla.level1.email
+  enabled     Boolean  @default(true)
+  subject     String?
+  body        String
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, key])
+}`);
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");

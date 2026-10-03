@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
-import { closedCaseMessage } from "@/lib/case-service";
+import { loadTemplates, buildCustomerMessages, caseVars } from "@/lib/notify";
 import { sendNotificationsBulk, type SendNotificationInput } from "@/lib/notifications";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
@@ -104,7 +104,11 @@ export async function POST(req: NextRequest) {
         caseNumber: true,
         subject: true,
         status: true,
-        customer: { select: { firstName: true, email: true, phone: true } },
+        priority: true,
+        type: true,
+        category: true,
+        customer: { select: { firstName: true, lastName: true, email: true, phone: true } },
+        assignedTo: { select: { name: true, email: true } },
       },
     });
     if (matching.length === 0) return NextResponse.json({ closed: 0, remaining: 0 });
@@ -112,11 +116,24 @@ export async function POST(req: NextRequest) {
     const ids = matching.map((c) => c.id);
     const now = new Date();
 
+    // Same editable "closed" templates as single closes; customers whose ticket was already marked Resolved
+    // have been told, so they aren't messaged again.
+    const [templates, tenant] = await Promise.all([
+      loadTemplates(prisma, ctx.tenantId),
+      prisma.tenant.findUnique({ where: { id: ctx.tenantId }, select: { name: true } }),
+    ]);
     const notifications: SendNotificationInput[] = [];
     for (const c of matching) {
-      const msg = closedCaseMessage({ caseNumber: c.caseNumber, subject: c.subject, firstName: c.customer.firstName });
-      if (c.customer.email) notifications.push({ tenantId: ctx.tenantId, channel: "email", to: c.customer.email, ...msg, relatedCaseId: c.id });
-      if (c.customer.phone) notifications.push({ tenantId: ctx.tenantId, channel: "sms", to: c.customer.phone, message: msg.message, relatedCaseId: c.id });
+      if (c.status === "RESOLVED") continue;
+      notifications.push(
+        ...buildCustomerMessages(templates, "closed", {
+          tenantId: ctx.tenantId,
+          vars: caseVars({ tenantName: tenant?.name ?? "", kase: c, customer: c.customer, owner: c.assignedTo }),
+          relatedCaseId: c.id,
+          email: c.customer.email,
+          phone: c.customer.phone,
+        })
+      );
     }
 
     // A handful of bulk statements instead of thousands of single ones.

@@ -3,7 +3,8 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
-import { logCaseActivity, notifyCaseClosed, escalateToUnit } from "@/lib/case-service";
+import { logCaseActivity, escalateToUnit } from "@/lib/case-service";
+import { notifyCaseStage } from "@/lib/notify";
 import { statusRequiresUnit } from "@/lib/case-status";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
@@ -144,8 +145,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         });
       }
 
-      if (body.status === "CLOSED" && existing.status !== "CLOSED") {
-        await notifyCaseClosed(tx, ctx.tenantId, existing.id);
+      // Customer is told once: "resolved" when it's marked Resolved; "closed" only if it was closed
+      // without having been Resolved first (otherwise they'd get two messages for one outcome).
+      if (body.status === "RESOLVED" && existing.status !== "RESOLVED") {
+        await notifyCaseStage(tx, ctx.tenantId, existing.id, "resolved");
+      }
+      if (body.status === "CLOSED" && existing.status !== "CLOSED" && existing.status !== "RESOLVED") {
+        await notifyCaseStage(tx, ctx.tenantId, existing.id, "closed");
       }
 
       // A new unit selection (different from what's already on the case)

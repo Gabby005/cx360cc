@@ -25,6 +25,7 @@ model Tenant {
   logoDataUrl       String?  // base64 data URI — no object storage (S3/Cloudinary) configured in this environment
   customerSummaryFields Json? // [{key,label,sensitive}] extra core-banking fields shown on the customer summary card
   businessHours Json?     // {timezone, days:{mon..sun:{open,close}|null}, holidays:[{date,name}]} — when SLA clocks run
+  notificationSettings Json? // {sla:{enabledSince,trigger,priorities,level1,level2}} — SLA escalation ladder
   createdAt         DateTime @default(now())
 
   users        Membership[]
@@ -33,6 +34,7 @@ model Tenant {
   caseCodes    CaseCode[]
   units        Unit[]
   notificationLogs NotificationLog[]
+  notificationTemplates NotificationTemplate[]
   accountTransactions AccountTransaction[]
   caseAttachments CaseAttachment[]
   slaPolicies  SlaPolicy[]
@@ -303,11 +305,14 @@ model NotificationLog {
   message       String
   relatedCaseId String?
   status        String   @default("logged") // logged | sent | failed
+  kind          String?  // template key, e.g. case.opened.email, sla.level1.email
+  cc            String?  // copied addresses, comma separated
   createdAt     DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId, createdAt])
+  @@index([tenantId, relatedCaseId])
 }
 
 model Case {
@@ -332,6 +337,8 @@ model Case {
   assignedToId String?
   slaPolicyId  String?
   slaLastFlag   String?   // last SLA stage:level an event was emitted for, so sweeps never repeat events
+  slaBreachedAt DateTime? // when the SLA was first exceeded
+  slaEscalationLevel Int @default(0) // 0 none, 1 manager one notified, 2 manager two notified
   responseDueAt   DateTime?
   resolutionDueAt DateTime?
   respondedAt     DateTime?
@@ -599,4 +606,19 @@ model AuditLog {
   @@index([tenantId, entity, entityId])
   @@index([tenantId, actorId, action, createdAt])
   @@index([tenantId, createdAt])
+}
+
+model NotificationTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  key         String   // e.g. case.opened.email, sla.level1.email
+  enabled     Boolean  @default(true)
+  subject     String?
+  body        String
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, key])
 }

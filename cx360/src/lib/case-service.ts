@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient, CaseType, Priority, CaseStatus } from "@prisma/client";
 import { ApiError } from "./tenant";
-import { notifyCustomer, sendNotification } from "./notifications";
+import { notifyCaseStage, sendUnitEscalationEmail } from "./notify";
 import { statusRequiresUnit } from "./case-status";
 import { addBusinessMinutes, parseBusinessHours } from "@/lib/business-hours";
 
@@ -114,14 +114,7 @@ export async function escalateToUnit(
     data: { escalatedUnitId: unit.id, escalatedAt: new Date() },
   });
 
-  await sendNotification(tx, {
-    tenantId: params.tenantId,
-    channel: "email",
-    to: unit.email,
-    subject: `Case escalated to ${unit.name}: ${params.caseNumber}`,
-    message: `A case has been escalated to ${unit.name}.\n\nCase: ${params.caseNumber}\nSubject: ${params.subject}\nCustomer: ${params.customerName}`,
-    relatedCaseId: params.caseId,
-  });
+  await sendUnitEscalationEmail(tx, { tenantId: params.tenantId, caseId: params.caseId, unit: { name: unit.name, email: unit.email } });
 
   return unit;
 }
@@ -216,14 +209,8 @@ export async function createCase(tx: Tx, input: CreateCaseInput) {
   });
 
   if (customer) {
-    await notifyCustomer(tx, {
-      tenantId: input.tenantId,
-      email: customer.email,
-      phone: customer.phone,
-      subject: `Your ticket ${newCase.caseNumber} has been opened`,
-      message: `Hi ${customer.firstName}, we've opened ticket ${newCase.caseNumber} for "${newCase.subject}". We'll keep you updated as it progresses.`,
-      relatedCaseId: newCase.id,
-    });
+    // Email + SMS "ticket logged", from the editable templates (Admin → Notifications).
+    await notifyCaseStage(tx, input.tenantId, newCase.id, "opened");
   }
 
   if (input.escalatedUnitId) {
@@ -238,33 +225,6 @@ export async function createCase(tx: Tx, input: CreateCaseInput) {
   }
 
   return newCase;
-}
-
-/**
- * Notifies the customer their ticket has been closed. Called from both
- * the single-case PATCH route and the batch-close route — the two
- * places a case's status can become CLOSED — so both paths behave
- * identically.
- */
-export async function notifyCaseClosed(tx: Tx, tenantId: string, caseId: string) {
-  const kase = await tx.case.findFirst({ where: { id: caseId, tenantId }, include: { customer: true } });
-  if (!kase) return;
-
-  await notifyCustomer(tx, {
-    tenantId,
-    email: kase.customer.email,
-    phone: kase.customer.phone,
-    ...closedCaseMessage({ caseNumber: kase.caseNumber, subject: kase.subject, firstName: kase.customer.firstName }),
-    relatedCaseId: kase.id,
-  });
-}
-
-/** The "your ticket has been closed" wording — one copy, used by single and batch close. */
-export function closedCaseMessage(c: { caseNumber: string; subject: string; firstName: string }) {
-  return {
-    subject: `Your ticket ${c.caseNumber} has been closed`,
-    message: `Hi ${c.firstName}, ticket ${c.caseNumber} ("${c.subject}") has been closed. If you still need help, just reach out and we'll reopen it.`,
-  };
 }
 
 /**

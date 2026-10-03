@@ -32,14 +32,14 @@ type Rule = {
   runs: RunLog[];
 };
 
-export function WorkflowsClient({ rules, canEdit }: { rules: Rule[]; canEdit: boolean }) {
+export function WorkflowsClient({ rules, canEdit, embedded = false }: { rules: Rule[]; canEdit: boolean; embedded?: boolean }) {
   const [showForm, setShowForm] = useState(false);
   const router = useRouter();
 
   return (
-    <div className="h-full overflow-y-auto p-6 max-w-3xl">
+    <div className={embedded ? "" : "h-full overflow-y-auto p-6 max-w-3xl"}>
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-lg font-semibold">Workflow automation</h1>
+        {embedded ? <h2 className="text-base font-semibold">Other automations</h2> : <h1 className="text-lg font-semibold">Workflow automation</h1>}
         {canEdit && (
           <button
             onClick={() => setShowForm((v) => !v)}
@@ -50,9 +50,9 @@ export function WorkflowsClient({ rules, canEdit }: { rules: Rule[]; canEdit: bo
         )}
       </div>
       <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-6">
-        Rules run every time a matching event is dispatched (see{" "}
-        <code className="kbd">/api/cron/dispatch-events</code>). Each row below shows its most recent runs, so you
-        can see exactly what fired and why.
+        Your own rules, for anything beyond SLA escalation — for example auto-assigning new complaints or adding a note.
+        They run when a matching event is dispatched (see <code className="kbd">/api/cron/dispatch-events</code>), and each
+        row shows its most recent runs so you can see exactly what fired and why.
       </p>
 
       {showForm && <RuleForm onCreated={() => { setShowForm(false); router.refresh(); }} />}

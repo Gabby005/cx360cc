@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/tenant";
 import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { CaseNumberPrefixEditor } from "@/components/admin/case-number-prefix-editor";
 import { actionLabel, entityLabel } from "@/lib/audit-query";
+import { ladderActive, parseNotificationSettings } from "@/lib/notification-settings";
 
 const PRIORITY_PILL: Record<string, string> = {
   CRITICAL: "pill-breach",
@@ -46,7 +47,7 @@ export default async function AdminPage() {
   const [policies, memberCount, tenant, hasLogo, codeCount, unitCount, teamCount, keyCount, hookCount, recent] = await Promise.all([
     prisma.slaPolicy.findMany({ where: { tenantId: t } }),
     prisma.membership.count({ where: { tenantId: t } }),
-    prisma.tenant.findUnique({ where: { id: t }, select: { caseNumberPrefix: true, customerSummaryFields: true, businessHours: true } }),
+    prisma.tenant.findUnique({ where: { id: t }, select: { caseNumberPrefix: true, customerSummaryFields: true, businessHours: true, notificationSettings: true } }),
     prisma.tenant.count({ where: { id: t, logoDataUrl: { not: null } } }),
     prisma.caseCode.count({ where: { tenantId: t, active: true } }),
     prisma.unit.count({ where: { tenantId: t, active: true } }),
@@ -77,6 +78,7 @@ export default async function AdminPage() {
     { done: memberCount > 1, label: "Add your agents and supervisors", href: "/admin/users" },
     { done: summaryCount > 0, label: "Choose customer summary fields", href: "/admin/customer-summary" },
     { done: !!tenant?.businessHours, label: "Set business hours & holidays", href: "/admin/business-hours" },
+    { done: ladderActive(parseNotificationSettings(tenant?.notificationSettings)), label: "Set who gets SLA escalation emails", href: "/workflows" },
   ];
   const doneCount = checklist.filter((c) => c.done).length;
 
@@ -152,8 +154,13 @@ export default async function AdminPage() {
             Who changed what, and when — tickets, users and roles, settings, integrations and report downloads. Filter and download to Excel.
           </Tile>
 
-          <Tile title="Notifications" href="/admin/notifications" link="View log">
-            Every customer ticket-opened/closed message, department escalation, and SLA-triggered notification the app has attempted to send.
+          <Tile title="Notification centre" href="/admin/notifications" link="Open">
+            Edit the wording of every email and SMS — customer ticket updates, department escalations and SLA alerts — and see exactly what was sent.
+          </Tile>
+
+          <Tile title="SLA escalation" href="/workflows" link="Set up">
+            Who is emailed when a ticket misses its deadline, and again if it is still open a day later.
+            {!ladderActive(parseNotificationSettings(tenant?.notificationSettings)) && <span className="block mt-1 text-xs text-sla-warning">Off — nobody is emailed yet.</span>}
           </Tile>
         </div>
 
