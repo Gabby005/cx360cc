@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { computeSlaClock, formatCountdown, type SlaTarget } from "@/lib/sla";
+import { useBusinessHours } from "@/components/providers/business-hours-provider";
 import { formatDistanceToNow } from "date-fns";
 import { BookOpen, Phone, Mail, MessageSquare, Plus } from "lucide-react";
 
@@ -56,6 +57,7 @@ export function AgentWorkspaceClient({
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(cases[0]?.id ?? null);
   const selected = cases.find((c) => c.id === selectedId) ?? null;
+  const businessHours = useBusinessHours();
 
   const ranked = useMemo(
     () =>
@@ -68,11 +70,12 @@ export function AgentWorkspaceClient({
                 respondedAt: c.respondedAt ? new Date(c.respondedAt) : null,
                 resolvedAt: c.resolvedAt ? new Date(c.resolvedAt) : null,
                 policy: c.slaPolicy,
+                businessHours,
               })
             : null,
         }))
         .sort((a, b) => (b.clock?.elapsedPct ?? -1) - (a.clock?.elapsedPct ?? -1)),
-    [cases]
+    [cases, businessHours]
   );
 
   return (

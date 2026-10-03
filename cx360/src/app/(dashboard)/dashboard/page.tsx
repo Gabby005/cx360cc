@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { computeSlaClock } from "@/lib/sla";
+import { parseBusinessHours } from "@/lib/business-hours";
 import Link from "next/link";
 import { Inbox, CheckCircle2, AlertTriangle } from "lucide-react";
 
 export default async function DashboardPage() {
   const ctx = await requireSession();
 
-  const [openCases, resolvedToday, breachedCount, casesWithPolicy] = await Promise.all([
+  const [openCases, resolvedToday, breachedCount, casesWithPolicy, tenantHours] = await Promise.all([
     prisma.case.count({ where: { tenantId: ctx.tenantId, status: { in: ["NEW", "OPEN", "PENDING_CUSTOMER", "PENDING_BANK", "PENDING_THIRD_PARTY", "ESCALATED"] } } }),
     prisma.case.count({
       where: { tenantId: ctx.tenantId, resolvedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
@@ -19,10 +20,12 @@ export default async function DashboardPage() {
       orderBy: { createdAt: "asc" },
       take: 8,
     }),
+    prisma.tenant.findUnique({ where: { id: ctx.tenantId }, select: { businessHours: true } }),
   ]);
+  const businessHours = parseBusinessHours(tenantHours?.businessHours);
 
   const atRisk = casesWithPolicy
-    .map((c) => ({ case: c, clock: c.slaPolicy ? computeSlaClock({ createdAt: c.createdAt, respondedAt: c.respondedAt, resolvedAt: c.resolvedAt, policy: c.slaPolicy }) : null }))
+    .map((c) => ({ case: c, clock: c.slaPolicy ? computeSlaClock({ createdAt: c.createdAt, respondedAt: c.respondedAt, resolvedAt: c.resolvedAt, policy: c.slaPolicy, businessHours }) : null }))
     .filter((x) => x.clock && x.clock.status !== "ok")
     .sort((a, b) => (b.clock!.elapsedPct ?? 0) - (a.clock!.elapsedPct ?? 0));
 

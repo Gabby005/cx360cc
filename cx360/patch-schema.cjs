@@ -44,6 +44,9 @@ edit("model", "Case", "Case.slaLastFlag", /slaLastFlag\s+String\?/,
 edit("model", "AuditLog", "AuditLog date index", /@@index\(\[tenantId, createdAt\]\)/,
   beforeClose("  @@index([tenantId, createdAt])"));
 
+edit("model", "Tenant", "Tenant.businessHours", /businessHours\s+Json\?/,
+  after(/^[ \t]*customerSummaryFields\s+Json\?.*$/m, "  businessHours Json?     // {timezone, days:{mon..sun:{open,close}|null}, holidays:[{date,name}]} — when SLA clocks run"));
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");

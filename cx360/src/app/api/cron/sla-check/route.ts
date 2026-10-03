@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeSlaClock } from "@/lib/sla";
+import { parseBusinessHours, type BusinessHours } from "@/lib/business-hours";
 
 // Never pre-rendered; always runs on demand.
 export const dynamic = "force-dynamic";
@@ -36,6 +37,14 @@ export async function POST(req: NextRequest) {
   let warnings = 0;
   let breaches = 0;
   let cursor: string | undefined;
+  const hoursByTenant = new Map<string, BusinessHours | null>();
+  async function hoursFor(tenantId: string) {
+    if (!hoursByTenant.has(tenantId)) {
+      const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { businessHours: true } });
+      hoursByTenant.set(tenantId, parseBusinessHours(t?.businessHours));
+    }
+    return hoursByTenant.get(tenantId)!;
+  }
 
   while (scanned < MAX_SCAN) {
     const rows = await prisma.case.findMany({
@@ -51,7 +60,7 @@ export async function POST(req: NextRequest) {
         respondedAt: true,
         resolvedAt: true,
         slaLastFlag: true,
-        slaPolicy: { select: { responseMinutes: true, resolutionMinutes: true, warningThresholdPct: true, escalationThresholdPct: true } },
+        slaPolicy: { select: { responseMinutes: true, resolutionMinutes: true, warningThresholdPct: true, escalationThresholdPct: true, businessHoursOnly: true } },
       },
     });
     if (rows.length === 0) break;
@@ -62,7 +71,8 @@ export async function POST(req: NextRequest) {
 
     for (const c of rows) {
       if (!c.slaPolicy) continue;
-      const clock = computeSlaClock({ createdAt: c.createdAt, respondedAt: c.respondedAt, resolvedAt: c.resolvedAt, policy: c.slaPolicy });
+      const businessHours = c.slaPolicy.businessHoursOnly ? await hoursFor(c.tenantId) : null;
+      const clock = computeSlaClock({ createdAt: c.createdAt, respondedAt: c.respondedAt, resolvedAt: c.resolvedAt, policy: c.slaPolicy, businessHours });
       if (clock.status === "ok") continue;
 
       const flag = `${clock.stage}:${clock.status}`;

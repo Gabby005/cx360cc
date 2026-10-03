@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { SlaPoliciesClient } from "@/components/admin/sla-policies-client";
+import { parseBusinessHours } from "@/lib/business-hours";
 
 const ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
@@ -10,10 +11,13 @@ export default async function SlaPage() {
   const ctx = await requireSession();
   if (ctx.role !== "ADMIN") redirect("/dashboard");
 
-  const policies = await prisma.slaPolicy.findMany({
-    where: { tenantId: ctx.tenantId },
-    select: { id: true, priority: true, responseMinutes: true, resolutionMinutes: true, warningThresholdPct: true, escalationThresholdPct: true },
-  });
+  const [policies, tenant] = await Promise.all([
+    prisma.slaPolicy.findMany({
+      where: { tenantId: ctx.tenantId },
+      select: { id: true, priority: true, responseMinutes: true, resolutionMinutes: true, warningThresholdPct: true, escalationThresholdPct: true, businessHoursOnly: true },
+    }),
+    prisma.tenant.findUnique({ where: { id: ctx.tenantId }, select: { businessHours: true } }),
+  ]);
   policies.sort((a, b) => ORDER.indexOf(a.priority) - ORDER.indexOf(b.priority));
 
   return (
@@ -26,7 +30,7 @@ export default async function SlaPage() {
         How quickly each priority must get a first response and be resolved. Changes apply straight away to the countdowns on open tickets and to
         every new ticket. Tickets already reported on keep the due date they were given.
       </p>
-      <SlaPoliciesClient initial={policies} />
+      <SlaPoliciesClient initial={policies} hasBusinessHours={!!parseBusinessHours(tenant?.businessHours)} />
     </div>
   );
 }

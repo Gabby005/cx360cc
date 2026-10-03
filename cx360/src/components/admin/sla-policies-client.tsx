@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
-type Policy = { id: string; priority: string; responseMinutes: number; resolutionMinutes: number; warningThresholdPct: number; escalationThresholdPct: number };
+type Policy = { id: string; priority: string; responseMinutes: number; resolutionMinutes: number; warningThresholdPct: number; escalationThresholdPct: number; businessHoursOnly: boolean };
 type Unit = "minutes" | "hours" | "days";
 
 const MULT: Record<Unit, number> = { minutes: 1, hours: 60, days: 1440 };
@@ -32,12 +33,13 @@ function Duration({ label, value, unit, onChange }: { label: string; value: numb
   );
 }
 
-function Row({ policy }: { policy: Policy }) {
+function Row({ policy, hasBusinessHours }: { policy: Policy; hasBusinessHours: boolean }) {
   const router = useRouter();
   const [resp, setResp] = useState(split(policy.responseMinutes));
   const [reso, setReso] = useState(split(policy.resolutionMinutes));
   const [warn, setWarn] = useState(policy.warningThresholdPct);
   const [esc, setEsc] = useState(policy.escalationThresholdPct);
+  const [bhOnly, setBhOnly] = useState(policy.businessHoursOnly);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -46,8 +48,10 @@ function Row({ policy }: { policy: Policy }) {
     resolutionMinutes: reso.value * MULT[reso.unit],
     warningThresholdPct: warn,
     escalationThresholdPct: esc,
+    businessHoursOnly: bhOnly,
   };
   const dirty =
+    bhOnly !== policy.businessHoursOnly ||
     body.responseMinutes !== policy.responseMinutes ||
     body.resolutionMinutes !== policy.resolutionMinutes ||
     warn !== policy.warningThresholdPct ||
@@ -81,6 +85,17 @@ function Row({ policy }: { policy: Policy }) {
           <input type="number" min={1} max={100} value={Number.isFinite(esc) ? esc : ""} onChange={(e) => setEsc(parseInt(e.target.value, 10))} className="input !py-1.5 text-sm w-24" />
         </div>
       </div>
+      <label className="flex items-start gap-2 text-sm cursor-pointer">
+        <input type="checkbox" checked={bhOnly} onChange={(e) => setBhOnly(e.target.checked)} className="mt-1" />
+        <span>
+          Count business hours only
+          <span className="block text-xs text-ink-950/50 dark:text-surface/50">
+            {bhOnly && !hasBusinessHours
+              ? "Business hours aren't saved yet, so this clock still runs around the clock until you set them."
+              : "Nights, weekends and public holidays don't count toward this deadline. Leave off for 24/7 priorities."}
+          </span>
+        </span>
+      </label>
       <div className="flex items-center gap-3">
         <button onClick={save} disabled={!dirty || saving} className="btn-primary text-xs">
           {saving ? "Saving…" : "Save changes"}
@@ -91,12 +106,18 @@ function Row({ policy }: { policy: Policy }) {
   );
 }
 
-export function SlaPoliciesClient({ initial }: { initial: Policy[] }) {
+export function SlaPoliciesClient({ initial, hasBusinessHours }: { initial: Policy[]; hasBusinessHours: boolean }) {
   if (initial.length === 0) return <div className="card p-6 text-sm text-ink-950/60 dark:text-surface/60">No SLA policies exist yet.</div>;
   return (
     <div className="space-y-3">
+      <p className="text-xs text-ink-950/50 dark:text-surface/50">
+        {hasBusinessHours ? "Business hours are set." : "Business hours aren't set yet."}{" "}
+        <Link href="/admin/business-hours" className="text-brand hover:underline">
+          Business hours & holidays →
+        </Link>
+      </p>
       {initial.map((p) => (
-        <Row key={p.id} policy={p} />
+        <Row key={p.id} policy={p} hasBusinessHours={hasBusinessHours} />
       ))}
     </div>
   );

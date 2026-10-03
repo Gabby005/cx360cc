@@ -11,11 +11,15 @@
  * escalations) exactly once, not to be the source of truth for display.
  */
 
+import { addBusinessMinutes, businessMinutesBetween, type BusinessHours } from "@/lib/business-hours";
+
 export type SlaTarget = {
   responseMinutes: number;
   resolutionMinutes: number;
   warningThresholdPct: number;
   escalationThresholdPct: number;
+  /** When true (and business hours are configured) the clock only runs while the bank is open. */
+  businessHoursOnly?: boolean;
 };
 
 export type SlaClockInput = {
@@ -23,6 +27,8 @@ export type SlaClockInput = {
   respondedAt: Date | null;
   resolvedAt: Date | null;
   policy: SlaTarget;
+  /** The bank's business hours; null/undefined = not configured, so the clock runs around the clock. */
+  businessHours?: BusinessHours | null;
   now?: Date;
 };
 
@@ -51,23 +57,28 @@ export function computeSlaClock(input: SlaClockInput): SlaClockState {
   const targetMinutes =
     stage === "response" ? policy.responseMinutes : policy.resolutionMinutes;
 
-  const dueAt = new Date(anchor.getTime() + targetMinutes * 60_000);
+  // Business-hours mode: only open time counts toward the target (nights, weekends and holidays are skipped).
+  const bh = policy.businessHoursOnly ? input.businessHours ?? null : null;
+  const between = (a: Date, b: Date) => (bh ? businessMinutesBetween(a, b, bh) : minutesBetween(a, b));
+  const dueAt = bh ? addBusinessMinutes(anchor, targetMinutes, bh) : new Date(anchor.getTime() + targetMinutes * 60_000);
+  // Positive while time is left; negative (open time overdue) once past due.
+  const remainingFrom = (t: Date) => (t.getTime() <= dueAt.getTime() ? between(t, dueAt) : -between(dueAt, t));
 
   if (stage === "met") {
     return {
       stage,
       targetMinutes,
-      elapsedMinutes: minutesBetween(anchor, input.resolvedAt!),
+      elapsedMinutes: between(anchor, input.resolvedAt!),
       elapsedPct: 0,
       dueAt,
       status: "ok",
-      minutesRemaining: minutesBetween(now, dueAt),
+      minutesRemaining: remainingFrom(now),
     };
   }
 
-  const elapsedMinutes = minutesBetween(anchor, now);
+  const elapsedMinutes = between(anchor, now);
   const elapsedPct = Math.round((elapsedMinutes / targetMinutes) * 100);
-  const minutesRemaining = minutesBetween(now, dueAt);
+  const minutesRemaining = remainingFrom(now);
 
   let status: SlaClockState["status"] = "ok";
   if (elapsedPct >= 100) status = "breach";

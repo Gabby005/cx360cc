@@ -27,6 +27,7 @@ export const ACTION_LABELS: Record<string, string> = {
   case_code_deactivated: "Case code deactivated",
   sla_policy_updated: "SLA policy changed",
   settings_updated: "Settings changed",
+  business_hours_updated: "Business hours changed",
   // integrations
   api_key_created: "API key created",
   api_key_revoked: "API key revoked",
@@ -47,6 +48,7 @@ export const ENTITY_LABELS: Record<string, string> = {
   CaseCode: "Case code",
   SlaPolicy: "SLA policy",
   Tenant: "Settings",
+  BusinessHours: "Business hours",
   CustomerSummaryConfig: "Customer summary",
   ApiKey: "API key",
   Webhook: "Webhook",

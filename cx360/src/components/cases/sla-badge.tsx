@@ -1,6 +1,9 @@
+"use client";
+
 import { AlertTriangle, CheckCircle2, Clock, Flame } from "lucide-react";
 import clsx from "clsx";
 import { computeSlaClock, formatCountdown, SLA_STATUS_LABEL, type SlaTarget } from "@/lib/sla";
+import { useBusinessHours } from "@/components/providers/business-hours-provider";
 
 const STYLE: Record<string, { bg: string; text: string; icon: typeof Clock }> = {
   ok: { bg: "bg-sla-ok/10", text: "text-sla-ok", icon: CheckCircle2 },
@@ -20,7 +23,8 @@ export function SlaBadge({
   resolvedAt: Date | null;
   policy: SlaTarget;
 }) {
-  const clock = computeSlaClock({ createdAt, respondedAt, resolvedAt, policy });
+  const businessHours = useBusinessHours();
+  const clock = computeSlaClock({ createdAt, respondedAt, resolvedAt, policy, businessHours });
 
   if (clock.stage === "met") {
     return (

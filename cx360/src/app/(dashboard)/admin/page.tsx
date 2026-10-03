@@ -46,7 +46,7 @@ export default async function AdminPage() {
   const [policies, memberCount, tenant, hasLogo, codeCount, unitCount, teamCount, keyCount, hookCount, recent] = await Promise.all([
     prisma.slaPolicy.findMany({ where: { tenantId: t } }),
     prisma.membership.count({ where: { tenantId: t } }),
-    prisma.tenant.findUnique({ where: { id: t }, select: { caseNumberPrefix: true, customerSummaryFields: true } }),
+    prisma.tenant.findUnique({ where: { id: t }, select: { caseNumberPrefix: true, customerSummaryFields: true, businessHours: true } }),
     prisma.tenant.count({ where: { id: t, logoDataUrl: { not: null } } }),
     prisma.caseCode.count({ where: { tenantId: t, active: true } }),
     prisma.unit.count({ where: { tenantId: t, active: true } }),
@@ -76,6 +76,7 @@ export default async function AdminPage() {
     { done: teamCount > 0, label: "Create a team", href: "/admin/users" },
     { done: memberCount > 1, label: "Add your agents and supervisors", href: "/admin/users" },
     { done: summaryCount > 0, label: "Choose customer summary fields", href: "/admin/customer-summary" },
+    { done: !!tenant?.businessHours, label: "Set business hours & holidays", href: "/admin/business-hours" },
   ];
   const doneCount = checklist.filter((c) => c.done).length;
 
@@ -140,6 +141,11 @@ export default async function AdminPage() {
                 </div>
               ))}
             </div>
+          </Tile>
+
+          <Tile title="Business hours & holidays" href="/admin/business-hours" link="Set hours">
+            When the bank is open and which days are public holidays, so SLA clocks that count business hours only don&apos;t run overnight or on weekends.
+            {!tenant?.businessHours && <span className="block mt-1 text-xs text-sla-warning">Not set yet — SLA clocks run around the clock.</span>}
           </Tile>
 
           <Tile title="Audit log" href="/admin/audit" link="View log">

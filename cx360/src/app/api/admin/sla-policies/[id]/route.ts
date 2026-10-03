@@ -16,6 +16,7 @@ const patchSchema = z
     resolutionMinutes: z.number().int().min(1, "Resolution time must be at least 1 minute").max(MAX_RESOLUTION, "Resolution time can't be more than 90 days"),
     warningThresholdPct: z.number().int().min(1).max(99),
     escalationThresholdPct: z.number().int().min(1).max(100),
+    businessHoursOnly: z.boolean(),
   })
   .refine((b) => b.resolutionMinutes >= b.responseMinutes, { message: "Resolution time can't be shorter than the response time." })
   .refine((b) => b.warningThresholdPct < b.escalationThresholdPct, { message: "The warning point must come before the escalation point." });
@@ -37,6 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       resolutionMinutes: p.resolutionMinutes,
       warningThresholdPct: p.warningThresholdPct,
       escalationThresholdPct: p.escalationThresholdPct,
+      businessHoursOnly: p.businessHoursOnly,
     });
     await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: "sla_policy_updated", entity: "SlaPolicy", entityId: existing.id, before: pick(existing), after: pick(policy) });
 

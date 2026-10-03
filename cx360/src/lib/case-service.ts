@@ -2,6 +2,7 @@ import { Prisma, PrismaClient, CaseType, Priority, CaseStatus } from "@prisma/cl
 import { ApiError } from "./tenant";
 import { notifyCustomer, sendNotification } from "./notifications";
 import { statusRequiresUnit } from "./case-status";
+import { addBusinessMinutes, parseBusinessHours } from "@/lib/business-hours";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -170,6 +171,11 @@ export async function createCase(tx: Tx, input: CreateCaseInput) {
   ]);
 
   const now = new Date();
+  // Business-hours policies count only open time toward the due dates (weekends, nights and holidays are skipped).
+  const hours = policy?.businessHoursOnly
+    ? parseBusinessHours((await tx.tenant.findUnique({ where: { id: input.tenantId }, select: { businessHours: true } }))?.businessHours)
+    : null;
+  const dueAfter = (minutes: number) => (hours ? addBusinessMinutes(now, minutes, hours) : new Date(now.getTime() + minutes * 60_000));
   const newCase = await tx.case.create({
     data: {
       tenantId: input.tenantId,
@@ -188,8 +194,8 @@ export async function createCase(tx: Tx, input: CreateCaseInput) {
       queueId: input.queueId,
       createdById: input.actorId,
       slaPolicyId: policy?.id,
-      responseDueAt: policy ? new Date(now.getTime() + policy.responseMinutes * 60_000) : null,
-      resolutionDueAt: policy ? new Date(now.getTime() + policy.resolutionMinutes * 60_000) : null,
+      responseDueAt: policy ? dueAfter(policy.responseMinutes) : null,
+      resolutionDueAt: policy ? dueAfter(policy.resolutionMinutes) : null,
     },
   });
 
