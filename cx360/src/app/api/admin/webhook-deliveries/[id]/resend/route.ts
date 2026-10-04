@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 import { recordAudit } from "@/lib/audit";
@@ -13,7 +14,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     const d = await prisma.webhookDelivery.findFirst({ where: { id: params.id, tenantId: ctx.tenantId } });
     if (!d) return NextResponse.json({ error: "Not found" }, { status: 404 });
     // Cloned rather than revived, so the old attempt stays in the history and the 24-hour retry window starts fresh.
-    const copy = await prisma.webhookDelivery.create({ data: { tenantId: d.tenantId, subscriptionId: d.subscriptionId, eventId: d.eventId, type: d.type, payload: d.payload as object } });
+    const copy = await prisma.webhookDelivery.create({ data: { tenantId: d.tenantId, subscriptionId: d.subscriptionId, eventId: d.eventId, type: d.type, payload: d.payload as Prisma.InputJsonValue } });
     await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: "webhook_delivery_resent", entity: "Webhook", entityId: d.subscriptionId, after: { type: d.type, deliveryId: copy.id } });
     return NextResponse.json({ ok: true, id: copy.id });
   } catch (err) {
