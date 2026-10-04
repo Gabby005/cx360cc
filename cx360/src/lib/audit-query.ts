@@ -37,7 +37,11 @@ export const ACTION_LABELS: Record<string, string> = {
   // integrations
   api_key_created: "API key created",
   api_key_revoked: "API key revoked",
+  api_key_updated: "API key changed",
   webhook_created: "Webhook created",
+  webhook_updated: "Webhook changed",
+  webhook_secret_rotated: "Webhook secret replaced",
+  webhook_delivery_resent: "Webhook delivery re-sent",
   webhook_enabled: "Webhook enabled",
   webhook_disabled: "Webhook disabled",
   webhook_deleted: "Webhook deleted",

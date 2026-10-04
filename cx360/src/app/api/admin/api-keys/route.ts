@@ -15,7 +15,7 @@ export async function GET() {
     const keys = await prisma.apiKey.findMany({
       where: { tenantId: ctx.tenantId },
       orderBy: { createdAt: "desc" },
-      select: { id: true, name: true, lastUsedAt: true, createdAt: true, revokedAt: true },
+      select: { id: true, name: true, scopes: true, lastUsedAt: true, createdAt: true, revokedAt: true },
     });
     return NextResponse.json({ keys });
   } catch (err) {
@@ -23,7 +23,7 @@ export async function GET() {
   }
 }
 
-const createSchema = z.object({ name: z.string().min(1) });
+const createSchema = z.object({ name: z.string().trim().min(1, "Give the key a name").max(80), scopes: z.array(z.enum(["read", "write"])).min(1, "Choose at least one permission").default(["read"]) });
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,15 +33,15 @@ export async function POST(req: NextRequest) {
 
     const { raw, hash } = generateApiKey();
     const key = await prisma.apiKey.create({
-      data: { tenantId: ctx.tenantId, name: body.name, keyHash: hash },
+      data: { tenantId: ctx.tenantId, name: body.name, keyHash: hash, scopes: [...new Set(body.scopes)] },
     });
 
-    await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: "api_key_created", entity: "ApiKey", entityId: key.id, after: { name: key.name } });
+    await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: "api_key_created", entity: "ApiKey", entityId: key.id, after: { name: key.name, scopes: key.scopes } });
 
     // The raw key is returned exactly once, in this response, and never
     // again — only its hash is persisted.
     return NextResponse.json(
-      { key: { id: key.id, name: key.name, createdAt: key.createdAt }, rawKey: raw },
+      { key: { id: key.id, name: key.name, scopes: key.scopes, createdAt: key.createdAt }, rawKey: raw },
       { status: 201 }
     );
   } catch (err) {

@@ -49,7 +49,7 @@ const createSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const { tenantId } = await requireApiKey(req);
+    const { tenantId } = await requireApiKey(req, "write");
     const body = createSchema.parse(await req.json());
 
     const customer = await prisma.$transaction(async (tx) => {

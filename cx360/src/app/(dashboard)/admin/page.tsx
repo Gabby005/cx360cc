@@ -104,7 +104,7 @@ export default async function AdminPage() {
         </Link>
       </div>
       <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-6">
-        Organisation settings, people, SLA targets and the audit log. API keys and webhooks live in the Integration Hub.
+        Organisation settings, people, SLA targets and the audit log. API keys, webhooks and connectors live in the Integration Hub.
       </p>
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">

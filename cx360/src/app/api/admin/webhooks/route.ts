@@ -4,20 +4,12 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 import { recordAudit } from "@/lib/audit";
+import { EVENT_TYPES } from "@/lib/event-catalog";
+import { checkGatewayUrl } from "@/lib/delivery/config";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
 export const dynamic = "force-dynamic";
 
-const EVENT_TYPES = [
-  "customer.created",
-  "case.created",
-  "case.assigned",
-  "case.resolved",
-  "sla.warning",
-  "sla.breached",
-  "complaint.created",
-  "feedback.received",
-] as const;
 
 export async function GET() {
   try {
@@ -37,8 +29,8 @@ export async function GET() {
 }
 
 const createSchema = z.object({
-  url: z.string().url(),
-  events: z.array(z.enum(EVENT_TYPES)).min(1),
+  url: z.string().trim().url("Enter a full web address, e.g. https://your-system.example.com/hook").max(500),
+  events: z.array(z.string().refine((e) => EVENT_TYPES.includes(e), "Unknown event")).min(1, "Choose at least one event"),
 });
 
 export async function POST(req: NextRequest) {
@@ -46,6 +38,9 @@ export async function POST(req: NextRequest) {
     const ctx = await requireSession();
     requirePermission(ctx, "ADMIN");
     const body = createSchema.parse(await req.json());
+
+    const bad = checkGatewayUrl(body.url);
+    if (bad) throw new ApiError(400, bad);
 
     const secret = crypto.randomBytes(24).toString("hex");
     const webhook = await prisma.webhookSubscription.create({

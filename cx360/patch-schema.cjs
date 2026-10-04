@@ -115,6 +115,30 @@ model JobRun {
   @@index([job, startedAt])
 }`);
 
+edit("model", "ApiKey", "ApiKey.scopes", /scopes\s+String\[\]/,
+  after(/^[ \t]*revokedAt\s+DateTime\?.*$/m, '  scopes     String[] @default(["read", "write"]) // what the key may do: read, write'));
+ensureModel("WebhookDelivery", `
+model WebhookDelivery {
+  id             String    @id @default(cuid())
+  tenantId       String
+  subscriptionId String
+  eventId        String?
+  type           String
+  payload        Json
+  status         String    @default("queued") // queued | sent | failed
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime?
+  lockedUntil    DateTime?
+  lastHttpStatus Int?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  sentAt         DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([tenantId, createdAt])
+  @@index([subscriptionId, createdAt])
+}`);
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");

@@ -61,7 +61,7 @@ const createSchema = z
 // between entry points.
 export async function POST(req: NextRequest) {
   try {
-    const { tenantId } = await requireApiKey(req);
+    const { tenantId } = await requireApiKey(req, "write");
     const body = createSchema.parse(await req.json());
 
     const customer = await prisma.customer.findFirst({ where: { id: body.customerId, tenantId } });

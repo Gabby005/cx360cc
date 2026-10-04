@@ -1,6 +1,6 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { runRulesForEvent } from "@/lib/workflow-engine";
-import { deliverWebhook } from "@/lib/webhook";
 
 /**
  * Event dispatcher — the other half of the outbox pattern started in the
@@ -12,8 +12,9 @@ import { deliverWebhook } from "@/lib/webhook";
  *      backlog can't make one invocation run forever on a serverless
  *      function's time budget).
  *   2. Runs any matching WorkflowRule for that event (see workflow-engine.ts).
- *   3. Delivers the event to any WebhookSubscription subscribed to that
- *      event type, signing the payload with the subscription's secret.
+ *   3. Queues a WebhookDelivery for every active WebhookSubscription
+ *      subscribed to that event type. The dispatch-webhooks job sends them,
+ *      signed, with retries — so a down receiver never loses an event.
  *   4. Marks the event dispatched — exactly once per event, so retried
  *      sweeps never double-fire actions or webhooks for the same event.
  *
@@ -28,8 +29,7 @@ export async function runDispatchEvents() {
   });
 
   let workflowsMatched = 0;
-  let webhooksDelivered = 0;
-  let webhooksFailed = 0;
+  let webhooksQueued = 0;
 
   for (const event of events) {
     const { rulesMatched } = await runRulesForEvent(prisma, {
@@ -44,19 +44,15 @@ export async function runDispatchEvents() {
       where: { tenantId: event.tenantId, active: true, events: { has: event.type } },
     });
 
-    for (const sub of subs) {
-      const result = await deliverWebhook(sub.url, sub.secret, event.type, event.payload);
-      if (result.ok) webhooksDelivered++;
-      else webhooksFailed++;
-    }
-
-    await prisma.event.update({ where: { id: event.id }, data: { dispatched: true } });
+    // Queue the deliveries and mark the event dispatched together, so a retried sweep never queues twice.
+    await prisma.$transaction([
+      ...(subs.length
+        ? [prisma.webhookDelivery.createMany({ data: subs.map((sub) => ({ tenantId: event.tenantId, subscriptionId: sub.id, eventId: event.id, type: event.type, payload: (event.payload ?? {}) as Prisma.InputJsonValue })) })]
+        : []),
+      prisma.event.update({ where: { id: event.id }, data: { dispatched: true } }),
+    ]);
+    webhooksQueued += subs.length;
   }
 
-  return {
-    eventsProcessed: events.length,
-    workflowsMatched,
-    webhooksDelivered,
-    webhooksFailed,
-  };
+  return { eventsProcessed: events.length, workflowsMatched, webhooksQueued };
 }

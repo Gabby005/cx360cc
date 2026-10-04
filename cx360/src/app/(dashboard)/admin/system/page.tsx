@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const TZ = process.env.APP_TIMEZONE || "Africa/Lagos";
 const when = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-const STALE_MIN: Record<JobName, number> = { "sla-check": 10, "dispatch-events": 5, "dispatch-notifications": 5 };
+const STALE_MIN: Record<JobName, number> = { "sla-check": 10, "dispatch-events": 5, "dispatch-notifications": 5, "dispatch-webhooks": 5 };
 
 function ago(d: Date) {
   const m = Math.max(0, Math.round((Date.now() - d.getTime()) / 60_000));

@@ -1,312 +1,233 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Copy, Check, Plus } from "lucide-react";
+import { EVENT_CATALOG } from "@/lib/event-catalog";
 
-const EVENT_TYPES = [
-  "customer.created",
-  "case.created",
-  "case.assigned",
-  "case.resolved",
-  "sla.warning",
-  "sla.breached",
-  "complaint.created",
-  "feedback.received",
-];
+export type ApiKeyItem = { id: string; name: string; scopes: string[]; createdAt: string; lastUsedAt: string | null; revokedAt: string | null };
+export type WebhookItem = { id: string; url: string; events: string[]; active: boolean; secret: string; createdAt: string; failed24: number; sent24: number };
 
-type ApiKeyItem = { id: string; name: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null };
-type WebhookItem = { id: string; url: string; events: string[]; active: boolean; secret: string; createdAt: string };
+const fmt = (d: string) => new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
-const CONNECTORS = [
-  { name: "Core Banking (ISO 20022)", category: "Core Banking" },
-  { name: "Twilio Voice & SMS", category: "Telephony" },
-  { name: "WhatsApp Business API", category: "Messaging" },
-  { name: "SendGrid / SES Email", category: "Email" },
-  { name: "SAP ERP", category: "ERP" },
-  { name: "Salesforce", category: "CRM Sync" },
-];
-
-export function IntegrationsClient({
-  initialKeys,
-  initialWebhooks,
-}: {
-  initialKeys: ApiKeyItem[];
-  initialWebhooks: WebhookItem[];
-}) {
+function CopyBox({ value, note }: { value: string; note: string }) {
+  const [copied, setCopied] = useState(false);
   return (
-    <div className="h-full overflow-y-auto p-6 max-w-3xl">
-      <Link href="/admin" className="text-xs text-ink-950/50 dark:text-surface/50 hover:text-brand">
-        ← Admin centre
-      </Link>
-      <h1 className="text-lg font-semibold mt-2 mb-1">Integration hub</h1>
-      <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-6">
-        API keys and webhooks below are live and call the real{" "}
-        <code className="kbd">/api/v1/**</code> and event-dispatch infrastructure. The connector marketplace is a
-        catalog of what CX360 is built to integrate with — wiring each one live needs that provider's OAuth
-        credentials, which is Phase 2.
-      </p>
-
-      <ApiKeysPanel initialKeys={initialKeys} />
-      <WebhooksPanel initialWebhooks={initialWebhooks} />
-      <ConnectorMarketplace />
+    <div className="card p-4 mb-3 border-sla-warning/40 bg-sla-warning/5">
+      <p className="text-xs font-medium text-sla-warning mb-1">{note}</p>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 text-xs font-mono bg-surface dark:bg-ink-950 px-2 py-1.5 rounded overflow-x-auto">{value}</code>
+        <button onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); }} className="p-1.5 rounded hover:bg-surface dark:hover:bg-ink-900" aria-label="Copy">
+          {copied ? <Check size={14} className="text-sla-ok" /> : <Copy size={14} />}
+        </button>
+      </div>
     </div>
   );
 }
 
-function ApiKeysPanel({ initialKeys }: { initialKeys: ApiKeyItem[] }) {
+function ScopePicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const toggle = (s: string) => onChange(value.includes(s) ? value.filter((x) => x !== s) : [...value, s]);
+  return (
+    <div className="flex gap-4 text-xs">
+      <label className="flex items-center gap-1.5"><input type="checkbox" checked={value.includes("read")} onChange={() => toggle("read")} /> Read <span className="text-ink-950/40 dark:text-surface/40">(look up tickets &amp; customers)</span></label>
+      <label className="flex items-center gap-1.5"><input type="checkbox" checked={value.includes("write")} onChange={() => toggle("write")} /> Write <span className="text-ink-950/40 dark:text-surface/40">(create tickets &amp; customers)</span></label>
+    </div>
+  );
+}
+
+export function ApiKeysPanel({ initialKeys }: { initialKeys: ApiKeyItem[] }) {
+  const router = useRouter();
   const [keys, setKeys] = useState(initialKeys);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
+  const [scopes, setScopes] = useState<string[]>(["read"]);
   const [rawKey, setRawKey] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!name.trim()) return setError("Name is required.");
-    const res = await fetch("/api/admin/api-keys", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    if (!res.ok) {
-      const { error: msg } = await res.json().catch(() => ({ error: "Failed" }));
-      setError(msg);
-      return;
-    }
-    const { key, rawKey: raw } = await res.json();
-    setKeys((prev) => [{ ...key, lastUsedAt: null, revokedAt: null }, ...prev]);
-    setRawKey(raw);
-    setName("");
+    const res = await fetch("/api/admin/api-keys", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, scopes }) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return setError(j.error ?? "Failed");
+    setKeys((p) => [{ ...j.key, lastUsedAt: null, revokedAt: null, createdAt: j.key.createdAt }, ...p]);
+    setRawKey(j.rawKey); setName(""); setScopes(["read"]); setShowForm(false);
+    router.refresh();
   }
-
+  async function setKeyScopes(id: string, next: string[]) {
+    if (next.length === 0) return;
+    const res = await fetch(`/api/admin/api-keys/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scopes: next }) });
+    if (res.ok) setKeys((p) => p.map((k) => (k.id === id ? { ...k, scopes: next } : k)));
+  }
+  async function rename(id: string, current: string) {
+    const n = window.prompt("New name for this key", current)?.trim();
+    if (!n || n === current) return;
+    const res = await fetch(`/api/admin/api-keys/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n }) });
+    if (res.ok) setKeys((p) => p.map((k) => (k.id === id ? { ...k, name: n } : k)));
+  }
   async function revoke(id: string) {
-    await fetch(`/api/admin/api-keys/${id}`, { method: "DELETE" });
-    setKeys((prev) => prev.map((k) => (k.id === id ? { ...k, revokedAt: new Date().toISOString() } : k)));
+    if (!window.confirm("Revoke this key? Anything using it stops working immediately.")) return;
+    const res = await fetch(`/api/admin/api-keys/${id}`, { method: "DELETE" });
+    if (res.ok) setKeys((p) => p.map((k) => (k.id === id ? { ...k, revokedAt: new Date().toISOString() } : k)));
   }
 
   return (
-    <section className="mb-8">
+    <section>
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-sm font-semibold">API keys</h2>
-        <button
-          onClick={() => { setShowForm((v) => !v); setRawKey(null); }}
-          className="btn-primary text-xs"
-        >
-          <Plus size={14} /> New key
-        </button>
+        <button onClick={() => setShowForm((v) => !v)} className="btn-primary text-xs"><Plus size={14} /> New key</button>
       </div>
-
+      <p className="text-xs text-ink-950/50 dark:text-surface/50 mb-3">One key per connected system, so you can revoke one without touching the others. Give a system only the permissions it needs.</p>
       {showForm && (
-        <form onSubmit={create} className="card p-4 mb-3 space-y-2">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Key name, e.g. Core Banking Sync"
-            className="input"
-          />
+        <form onSubmit={create} className="card p-4 mb-3 space-y-3">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Key name, e.g. Core Banking Sync" className="input" />
+          <ScopePicker value={scopes} onChange={setScopes} />
           {error && <p className="text-xs text-sla-breach">{error}</p>}
-          <button type="submit" className="btn-primary text-sm">
-            Generate key
-          </button>
+          <button type="submit" className="btn-primary text-sm">Generate key</button>
         </form>
       )}
-
-      {rawKey && (
-        <div className="card p-4 mb-3 border-sla-warning/40 bg-sla-warning/5">
-          <p className="text-xs font-medium text-sla-warning mb-1">
-            Copy this now — it won't be shown again.
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 text-xs font-mono bg-surface dark:bg-ink-950 px-2 py-1.5 rounded overflow-x-auto">
-              {rawKey}
-            </code>
-            <button
-              onClick={() => { navigator.clipboard.writeText(rawKey); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-              className="p-1.5 rounded hover:bg-surface dark:hover:bg-ink-900"
-            >
-              {copied ? <Check size={14} className="text-sla-ok" /> : <Copy size={14} />}
-            </button>
-          </div>
-          <p className="text-[11px] text-ink-950/50 dark:text-surface/50 mt-2">
-            Use it as <code className="kbd">X-API-Key: {"<key>"}</code> against{" "}
-            <code className="kbd">/api/v1/customers</code> and <code className="kbd">/api/v1/cases</code>.
-          </p>
-        </div>
-      )}
-
+      {rawKey && <CopyBox value={rawKey} note="Copy this now — it won't be shown again. Send it as the X-API-Key header." />}
       <div className="card divide-y divide-line-light dark:divide-line-dark">
         {keys.map((k) => (
-          <div key={k.id} className="p-3 flex items-center justify-between text-sm">
-            <div>
-              <div className="font-medium">{k.name}</div>
-              <div className="text-xs text-ink-950/50 dark:text-surface/50">
-                Created {new Date(k.createdAt).toLocaleDateString()}
-                {k.lastUsedAt ? ` · last used ${new Date(k.lastUsedAt).toLocaleDateString()}` : " · never used"}
+          <div key={k.id} className={`p-3 text-sm ${k.revokedAt ? "opacity-60" : ""}`}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-medium truncate">{k.name}</div>
+                <div className="text-xs text-ink-950/50 dark:text-surface/50">Created {fmt(k.createdAt)}{k.lastUsedAt ? ` · last used ${fmt(k.lastUsedAt)}` : " · never used"}</div>
               </div>
+              {k.revokedAt ? <span className="pill-neutral">Revoked</span> : (
+                <div className="flex items-center gap-3 shrink-0">
+                  <button onClick={() => rename(k.id, k.name)} className="text-xs text-brand hover:underline">Rename</button>
+                  <button onClick={() => revoke(k.id)} className="text-xs text-sla-breach hover:underline">Revoke</button>
+                </div>
+              )}
             </div>
-            {k.revokedAt ? (
-              <span className="pill-neutral">Revoked</span>
-            ) : (
-              <button onClick={() => revoke(k.id)} className="text-xs text-sla-breach hover:underline">
-                Revoke
-              </button>
-            )}
+            {!k.revokedAt && <div className="mt-2"><ScopePicker value={k.scopes} onChange={(v) => setKeyScopes(k.id, v)} /></div>}
           </div>
         ))}
-        {keys.length === 0 && (
-          <p className="p-6 text-center text-sm text-ink-950/50 dark:text-surface/50">No API keys yet.</p>
-        )}
+        {keys.length === 0 && <p className="p-6 text-center text-sm text-ink-950/50 dark:text-surface/50">No API keys yet.</p>}
       </div>
     </section>
   );
 }
 
-function WebhooksPanel({ initialWebhooks }: { initialWebhooks: WebhookItem[] }) {
+function EventPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+      {EVENT_CATALOG.map((e) => (
+        <label key={e.type} className="flex items-start gap-2 text-xs">
+          <input type="checkbox" className="mt-0.5" checked={value.includes(e.type)} onChange={(ev) => onChange(ev.target.checked ? [...value, e.type] : value.filter((x) => x !== e.type))} />
+          <span><span className="font-mono">{e.type}</span><span className="block text-ink-950/50 dark:text-surface/50">{e.label}</span></span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+export function WebhooksPanel({ initialWebhooks }: { initialWebhooks: WebhookItem[] }) {
+  const router = useRouter();
   const [webhooks, setWebhooks] = useState(initialWebhooks);
   const [showForm, setShowForm] = useState(false);
   const [url, setUrl] = useState("");
   const [events, setEvents] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<Record<string, string>>({});
+  const [secretShown, setSecretShown] = useState<string | null>(null);
+  const [note, setNote] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<string | null>(null);
+  const [eUrl, setEUrl] = useState("");
+  const [eEvents, setEEvents] = useState<string[]>([]);
+  const mask = (s: string) => `${s.slice(0, 6)}${"•".repeat(10)}`;
 
   async function create(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    if (!url.trim() || events.length === 0) return setError("URL and at least one event are required.");
-    const res = await fetch("/api/admin/webhooks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, events }),
-    });
-    if (!res.ok) {
-      const { error: msg } = await res.json().catch(() => ({ error: "Failed" }));
-      setError(msg);
-      return;
-    }
-    const { webhook } = await res.json();
-    setWebhooks((prev) => [{ ...webhook, secret: `${webhook.secret.slice(0, 6)}${"•".repeat(10)}` }, ...prev]);
-    setUrl("");
-    setEvents([]);
-    setShowForm(false);
+    e.preventDefault(); setError(null);
+    const res = await fetch("/api/admin/webhooks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, events }) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return setError(j.error ?? "Failed");
+    setWebhooks((p) => [{ ...j.webhook, secret: mask(j.webhook.secret), failed24: 0, sent24: 0 }, ...p]);
+    setSecretShown(j.webhook.secret); setUrl(""); setEvents([]); setShowForm(false); router.refresh();
   }
-
-  async function toggle(id: string, active: boolean) {
-    await fetch(`/api/admin/webhooks/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: !active }),
-    });
-    setWebhooks((prev) => prev.map((w) => (w.id === id ? { ...w, active: !active } : w)));
+  async function patch(id: string, body: object, okMsg?: string) {
+    const res = await fetch(`/api/admin/webhooks/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { setNote((p) => ({ ...p, [id]: j.error ?? "Failed" })); return false; }
+    setWebhooks((p) => p.map((w) => (w.id === id ? { ...w, ...j.webhook, failed24: w.failed24, sent24: w.sent24 } : w)));
+    if (j.newSecret) setSecretShown(j.newSecret);
+    if (okMsg) setNote((p) => ({ ...p, [id]: okMsg }));
+    return true;
   }
-
   async function remove(id: string) {
+    if (!window.confirm("Delete this webhook? Waiting deliveries for it will be dropped.")) return;
     await fetch(`/api/admin/webhooks/${id}`, { method: "DELETE" });
-    setWebhooks((prev) => prev.filter((w) => w.id !== id));
+    setWebhooks((p) => p.filter((w) => w.id !== id));
   }
-
   async function sendTest(id: string) {
-    setTestResult((prev) => ({ ...prev, [id]: "Sending…" }));
+    setNote((p) => ({ ...p, [id]: "Sending…" }));
     const res = await fetch(`/api/admin/webhooks/${id}/test`, { method: "POST" });
-    const data = await res.json();
-    setTestResult((prev) => ({
-      ...prev,
-      [id]: data.ok ? `Delivered (HTTP ${data.status})` : `Failed: ${data.error ?? data.status}`,
-    }));
+    const d = await res.json().catch(() => ({}));
+    setNote((p) => ({ ...p, [id]: d.ok ? `Delivered (HTTP ${d.status})` : `Failed: ${d.error ?? d.status}` }));
   }
 
   return (
-    <section className="mb-8">
+    <section>
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-sm font-semibold">Webhooks</h2>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="btn-primary text-xs"
-        >
-          <Plus size={14} /> New webhook
-        </button>
+        <button onClick={() => setShowForm((v) => !v)} className="btn-primary text-xs"><Plus size={14} /> New webhook</button>
       </div>
-
+      <p className="text-xs text-ink-950/50 dark:text-surface/50 mb-3">CX360 pushes events to your other systems as they happen. Failed deliveries are retried for 24 hours and appear in the Deliveries tab, where you can re-send them.</p>
       {showForm && (
         <form onSubmit={create} className="card p-4 mb-3 space-y-3">
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://your-system.example.com/webhooks/cx360"
-            className="input"
-          />
-          <div className="flex flex-wrap gap-2">
-            {EVENT_TYPES.map((evt) => (
-              <label key={evt} className="flex items-center gap-1.5 text-xs">
-                <input
-                  type="checkbox"
-                  checked={events.includes(evt)}
-                  onChange={(e) =>
-                    setEvents((prev) => (e.target.checked ? [...prev, evt] : prev.filter((x) => x !== evt)))
-                  }
-                />
-                <span className="font-mono">{evt}</span>
-              </label>
-            ))}
-          </div>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://your-system.example.com/webhooks/cx360" className="input" />
+          <EventPicker value={events} onChange={setEvents} />
           {error && <p className="text-xs text-sla-breach">{error}</p>}
-          <button type="submit" className="btn-primary text-sm">
-            Create webhook
-          </button>
+          <button type="submit" className="btn-primary text-sm">Create webhook</button>
         </form>
       )}
-
+      {secretShown && <CopyBox value={secretShown} note="Signing secret — copy it now, it won't be shown again. Your system uses it to check each message really came from CX360." />}
       <div className="card divide-y divide-line-light dark:divide-line-dark">
         {webhooks.map((w) => (
           <div key={w.id} className="p-3 text-sm">
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-mono text-xs truncate max-w-[280px]">{w.url}</span>
-              <button
-                onClick={() => toggle(w.id, w.active)}
-                className={w.active ? "pill-ok shrink-0" : "pill-neutral shrink-0"}
-              >
-                {w.active ? "Active" : "Paused"}
-              </button>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="font-mono text-xs truncate">{w.url}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                {w.failed24 > 0 && <span className="pill-breach">{w.failed24} failing</span>}
+                <button onClick={() => patch(w.id, { active: !w.active })} className={w.active ? "pill-ok" : "pill-neutral"}>{w.active ? "Active" : "Paused"}</button>
+              </div>
             </div>
-            <p className="text-xs text-ink-950/50 dark:text-surface/50 font-mono mb-2">{w.events.join(", ")}</p>
-            <div className="flex items-center gap-3">
-              <button onClick={() => sendTest(w.id)} className="text-xs text-brand hover:underline">
-                Send test event
-              </button>
-              <button onClick={() => remove(w.id)} className="text-xs text-sla-breach hover:underline">
-                Delete
-              </button>
-              {testResult[w.id] && (
-                <span className="text-xs text-ink-950/50 dark:text-surface/50">{testResult[w.id]}</span>
-              )}
+            <p className="text-xs text-ink-950/50 dark:text-surface/50 font-mono mb-1">{w.events.join(", ")}</p>
+            <p className="text-[11px] text-ink-950/40 dark:text-surface/40 mb-2">Last 24h: {w.sent24} delivered · secret {w.secret}</p>
+            {editing === w.id ? (
+              <div className="space-y-2 mb-2 rounded-lg bg-surface dark:bg-ink-800 p-3">
+                <input value={eUrl} onChange={(e) => setEUrl(e.target.value)} className="input !py-1.5 text-xs font-mono" />
+                <EventPicker value={eEvents} onChange={setEEvents} />
+                <div className="flex gap-2">
+                  <button className="btn-primary text-xs" onClick={async () => { if (await patch(w.id, { url: eUrl, events: eEvents }, "Saved")) setEditing(null); }}>Save</button>
+                  <button className="btn-secondary text-xs" onClick={() => setEditing(null)}>Cancel</button>
+                </div>
+              </div>
+            ) : null}
+            <div className="flex items-center gap-3 flex-wrap">
+              <button onClick={() => sendTest(w.id)} className="text-xs text-brand hover:underline">Send test event</button>
+              <button onClick={() => { setEditing(w.id); setEUrl(w.url); setEEvents(w.events); }} className="text-xs text-brand hover:underline">Edit</button>
+              <button onClick={() => { if (window.confirm("Replace the signing secret? Your receiving system must be updated with the new one.")) patch(w.id, { rotateSecret: true }, "Secret replaced"); }} className="text-xs text-brand hover:underline">Replace secret</button>
+              <button onClick={() => remove(w.id)} className="text-xs text-sla-breach hover:underline">Delete</button>
+              {note[w.id] && <span className="text-xs text-ink-950/50 dark:text-surface/50">{note[w.id]}</span>}
             </div>
           </div>
         ))}
-        {webhooks.length === 0 && (
-          <p className="p-6 text-center text-sm text-ink-950/50 dark:text-surface/50">No webhooks configured yet.</p>
-        )}
+        {webhooks.length === 0 && <p className="p-6 text-center text-sm text-ink-950/50 dark:text-surface/50">No webhooks configured yet.</p>}
       </div>
     </section>
   );
 }
 
-function ConnectorMarketplace() {
-  return (
-    <section>
-      <h2 className="text-sm font-semibold mb-2">Connector marketplace</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {CONNECTORS.map((c) => (
-          <div key={c.name} className="card p-3 flex items-center justify-between text-sm">
-            <div>
-              <div className="font-medium">{c.name}</div>
-              <div className="text-xs text-ink-950/50 dark:text-surface/50">{c.category}</div>
-            </div>
-            <span className="pill-neutral">Phase 2</span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
+export function ResendButton({ id }: { id: string }) {
+  const router = useRouter();
+  const [state, setState] = useState<"idle" | "busy" | "done">("idle");
+  async function go() {
+    setState("busy");
+    const res = await fetch(`/api/admin/webhook-deliveries/${id}/resend`, { method: "POST" });
+    setState(res.ok ? "done" : "idle");
+    router.refresh();
+  }
+  return <button onClick={go} disabled={state !== "idle"} className="text-xs text-brand hover:underline">{state === "done" ? "Queued" : state === "busy" ? "…" : "Re-send"}</button>;
 }

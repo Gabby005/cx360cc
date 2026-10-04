@@ -566,6 +566,7 @@ model ApiKey {
   lastUsedAt DateTime?
   createdAt  DateTime @default(now())
   revokedAt  DateTime?
+  scopes     String[] @default(["read", "write"]) // what the key may do: read, write
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 }
@@ -657,4 +658,25 @@ model JobRun {
   error      String?
 
   @@index([job, startedAt])
+}
+
+model WebhookDelivery {
+  id             String    @id @default(cuid())
+  tenantId       String
+  subscriptionId String
+  eventId        String?
+  type           String
+  payload        Json
+  status         String    @default("queued") // queued | sent | failed
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime?
+  lockedUntil    DateTime?
+  lastHttpStatus Int?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  sentAt         DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([tenantId, createdAt])
+  @@index([subscriptionId, createdAt])
 }
