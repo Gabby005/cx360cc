@@ -27,6 +27,7 @@ model Tenant {
   businessHours Json?     // {timezone, days:{mon..sun:{open,close}|null}, holidays:[{date,name}]} — when SLA clocks run
   notificationSettings Json? // {sla:{enabledSince,trigger,priorities,level1,level2}} — SLA escalation ladder
   deliverySettings Json? // how email/SMS reach the bank's own gateways (no secrets stored here)
+  coreBankingSettings Json? // live core banking lookups (endpoints + field mapping; no secrets, no customer data)
   createdAt         DateTime @default(now())
 
   users        Membership[]

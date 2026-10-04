@@ -139,6 +139,9 @@ model WebhookDelivery {
   @@index([subscriptionId, createdAt])
 }`);
 
+edit("model", "Tenant", "Tenant.coreBankingSettings", /coreBankingSettings\s+Json\?/,
+  after(/^[ \t]*deliverySettings\s+Json\?.*$/m, "  coreBankingSettings Json? // live core banking lookups (endpoints + field mapping; no secrets, no customer data)"));
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");

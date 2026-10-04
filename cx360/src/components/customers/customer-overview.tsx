@@ -13,8 +13,8 @@ type Account = {
   status: string;
   currency: string;
   balance: number | null;
-  openedAt: string;
-  transactions: Txn[];
+  openedAt: string | null;
+  transactions: Txn[] | null; // null = not loaded yet (live accounts load on click)
 };
 type ProfileField = { key: string; label: string; sensitive: boolean; value: string | null };
 type Overview = {
@@ -31,6 +31,8 @@ type Overview = {
   };
   accounts: Account[];
   accountCount: number;
+  source: "live" | "local";
+  note: string | null;
   cases: {
     open: number;
     overdue: number;
@@ -86,6 +88,7 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeAcct, setActiveAcct] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState<Record<string, Txn[] | "loading" | "error">>({});
   const [hidden, setHidden] = useState(false); // privacy toggle: masks balances + account numbers
   const [revealed, setRevealed] = useState<Set<string>>(new Set()); // sensitive profile fields the agent chose to show
 
@@ -106,6 +109,7 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
       .then((d) => {
         setData(d);
         setRevealed(new Set());
+        setLoaded({});
         setActiveAcct(d.accounts[0]?.id ?? null);
       })
       .catch((e) => {
@@ -136,6 +140,18 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
   const { customer, accounts, cases } = data;
   const sentiment = sentimentLabel(customer.sentimentAvg);
   const account = accounts.find((a) => a.id === activeAcct) ?? accounts[0];
+
+  function pick(a: Account) {
+    setActiveAcct(a.id);
+    if (a.transactions === null && a.accountRef && !loaded[a.id]) {
+      setLoaded((l) => ({ ...l, [a.id]: "loading" }));
+      fetch(`/api/customers/${customer.id}/live-transactions?ref=${encodeURIComponent(a.accountRef)}`)
+        .then(async (r) => { if (!r.ok) throw new Error(); return r.json() as Promise<{ transactions: Txn[] }>; })
+        .then((j) => setLoaded((l) => ({ ...l, [a.id]: j.transactions })))
+        .catch(() => setLoaded((l) => ({ ...l, [a.id]: "error" })));
+    }
+  }
+  const accountTx: Txn[] | "loading" | "error" = !account ? [] : account.transactions ?? loaded[account.id] ?? "loading";
 
   // Total balance per currency (never add across currencies).
   const totals = new Map<string, number>();
@@ -271,7 +287,7 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
               <button
                 key={a.id}
                 type="button"
-                onClick={() => setActiveAcct(a.id)}
+                onClick={() => pick(a)}
                 className={`w-full text-left rounded-xl border px-4 py-3.5 flex items-center justify-between gap-3 transition-colors ${
                   a.id === account?.id
                     ? "border-brand bg-brand-light/40 dark:bg-brand/10"
@@ -306,11 +322,15 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
           <h3 className="text-[13px] font-semibold tracking-wide text-ink-950/50 dark:text-surface/50 mb-2">
             LAST 5 TRANSACTIONS · {account.productName.toUpperCase()}
           </h3>
-          {account.transactions.length === 0 ? (
+          {accountTx === "loading" ? (
+            <p className="text-sm text-ink-950/50 dark:text-surface/50">Loading transactions…</p>
+          ) : accountTx === "error" ? (
+            <p className="text-sm text-sla-breach">Couldn&apos;t load transactions from the core banking system. Click the account to try again.</p>
+          ) : accountTx.length === 0 ? (
             <p className="text-sm text-ink-950/50 dark:text-surface/50">No transaction history.</p>
           ) : (
             <ul className="divide-y divide-line-light dark:divide-line-dark">
-              {account.transactions.map((t) => {
+              {accountTx.map((t) => {
                 const credit = t.type === "credit";
                 return (
                   <li key={t.id} className="py-3 flex items-center justify-between gap-3">
@@ -336,8 +356,9 @@ export function CustomerOverview({ customerId }: { customerId: string | null }) 
             </ul>
           )}
           <p className="text-[11px] text-ink-950/40 dark:text-surface/40 mt-2">
-            Read-only. Simulated core banking data until a live core banking sync is connected.
+            Read-only. {data.source === "live" ? "Live from the core banking system." : "Stored data, not live — may not match the core banking system."}
           </p>
+          {data.note && <p className="text-xs text-sla-warning mt-1">{data.note}</p>}
         </div>
       )}
 

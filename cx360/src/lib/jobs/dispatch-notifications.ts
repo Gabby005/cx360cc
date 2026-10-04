@@ -52,7 +52,7 @@ export async function runDispatchNotifications() {
     if (due.length === 0) break;
 
     // Claim each row; only the run that wins the claim sends it.
-    const claimed = [];
+    const claimed: typeof due = [];
     for (const row of due) {
       const r = await prisma.notificationLog.updateMany({
         where: { id: row.id, status: "queued", OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }] },

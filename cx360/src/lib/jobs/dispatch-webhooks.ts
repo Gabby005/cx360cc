@@ -33,7 +33,7 @@ export async function runDispatchWebhooks() {
     });
     if (due.length === 0) break;
 
-    const claimed = [];
+    const claimed: typeof due = [];
     for (const row of due) {
       const r = await prisma.webhookDelivery.updateMany({
         where: { id: row.id, status: "queued", OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }] },

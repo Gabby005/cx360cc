@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/tenant";
 import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { CaseNumberPrefixEditor } from "@/components/admin/case-number-prefix-editor";
 import { actionLabel, entityLabel } from "@/lib/audit-query";
+import { parseCoreSettings } from "@/lib/core-banking/config";
 import { parseDeliverySettings, connected } from "@/lib/delivery/config";
 import { ladderActive, parseNotificationSettings } from "@/lib/notification-settings";
 
@@ -50,7 +51,7 @@ export default async function AdminPage() {
   const [policies, memberCount, tenant, hasLogo, codeCount, unitCount, teamCount, keyCount, hookCount, recent] = await Promise.all([
     prisma.slaPolicy.findMany({ where: { tenantId: t } }),
     prisma.membership.count({ where: { tenantId: t } }),
-    prisma.tenant.findUnique({ where: { id: t }, select: { deliverySettings: true, caseNumberPrefix: true, customerSummaryFields: true, businessHours: true, notificationSettings: true } }),
+    prisma.tenant.findUnique({ where: { id: t }, select: { coreBankingSettings: true, deliverySettings: true, caseNumberPrefix: true, customerSummaryFields: true, businessHours: true, notificationSettings: true } }),
     prisma.tenant.count({ where: { id: t, logoDataUrl: { not: null } } }),
     prisma.caseCode.count({ where: { tenantId: t, active: true } }),
     prisma.unit.count({ where: { tenantId: t, active: true } }),
@@ -160,6 +161,11 @@ export default async function AdminPage() {
 
           <Tile title="Notification centre" href="/admin/notifications" link="Open">
             Edit the wording of every email and SMS — customer ticket updates, department escalations and SLA alerts — and see exactly what was sent.
+          </Tile>
+
+          <Tile title="Core banking" href="/admin/core-banking" link="Connect">
+            Show live balances, account status and the last 5 transactions on the customer card, straight from the core banking system.
+            {!parseCoreSettings(tenant?.coreBankingSettings).enabled && <span className="block mt-1 text-xs text-sla-warning">Off — agents see stored data only.</span>}
           </Tile>
 
           <Tile title="System health" href="/admin/system" link="Open">

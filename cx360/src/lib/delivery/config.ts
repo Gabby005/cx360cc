@@ -149,7 +149,7 @@ const SENSITIVE_HEADER = /^(authorization|x-api-key|api-key|apikey|x-auth-token|
 const SENSITIVE_BODY = /(api[_-]?key|apikey|secret|password|passwd|token|authorization)["']?\s*[:=]\s*["']?(?!\{\{)[^"'&\s,}]{6,}/i;
 
 /** Catches secrets pasted straight into a setting instead of using {{secret:NAME}}. */
-export function findPastedSecret(c: HttpEmailConfig | HttpSmsConfig): string | null {
+export function findPastedSecret(c: { headers: Header[]; body: string; url: string }): string | null {
   for (const h of c.headers) {
     if (SENSITIVE_HEADER.test(h.name) && !/\{\{\s*secret:/.test(h.value)) {
       return `The "${h.name}" header looks like it holds a secret. Don't paste it here — write {{secret:NAME}} and set the real value as the server variable CX360_NAME.`;

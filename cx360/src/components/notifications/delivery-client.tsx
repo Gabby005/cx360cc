@@ -51,6 +51,8 @@ function Headers({ value, onChange }: { value: { name: string; value: string }[]
   );
 }
 
+export { Headers as HeaderEditor };
+
 function TestBox({ channel, disabled }: { channel: "email" | "sms"; disabled: boolean }) {
   const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);

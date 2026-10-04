@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { ApiKeysPanel, WebhooksPanel, ResendButton } from "@/components/admin/integrations-client";
 import { EVENT_CATALOG } from "@/lib/event-catalog";
+import { parseCoreSettings } from "@/lib/core-banking/config";
 import { getDeliveryStatus } from "@/lib/delivery-status";
 import { CheckCircle2, CircleAlert } from "lucide-react";
 
@@ -28,10 +29,11 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
   const tab: Tab = TABS.some((x) => x.k === searchParams.tab) ? (searchParams.tab as Tab) : "overview";
   const day = new Date(Date.now() - 86_400_000);
 
-  const [keys, webhooks, delivery, stats] = await Promise.all([
+  const [keys, webhooks, delivery, tenantRow, stats] = await Promise.all([
     prisma.apiKey.findMany({ where: { tenantId: t }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, scopes: true, lastUsedAt: true, createdAt: true, revokedAt: true } }),
     prisma.webhookSubscription.findMany({ where: { tenantId: t }, orderBy: { createdAt: "desc" } }),
     getDeliveryStatus(t),
+    prisma.tenant.findUnique({ where: { id: t }, select: { coreBankingSettings: true } }),
     prisma.webhookDelivery.groupBy({ by: ["subscriptionId", "status"], where: { tenantId: t, createdAt: { gte: day } }, _count: true }),
   ]);
   const count = (sub: string | null, status: string) => stats.filter((s) => (!sub || s.subscriptionId === sub) && s.status === status).reduce((n, s) => n + s._count, 0);
@@ -50,6 +52,7 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
     });
   }
   const urlOf = new Map(webhooks.map((w) => [w.id, w.url]));
+  const core = parseCoreSettings(tenantRow?.coreBankingSettings);
   const base = process.env.NEXTAUTH_URL || "https://YOUR-SITE.netlify.app";
 
   return (
@@ -140,6 +143,7 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
           {[
             { name: "Bank SMS gateway", note: "Customer and agent SMS through the bank's own gateway.", status: delivery.sms ? "Connected" : "Not connected", ok: delivery.sms, href: "/admin/notifications?tab=delivery" },
             { name: "Email (Microsoft 365 or bank gateway)", note: "Customer notices and SLA escalation emails.", status: delivery.email ? "Connected" : "Not connected", ok: delivery.email, href: "/admin/notifications?tab=delivery" },
+            { name: "Core banking (live balances & transactions)", note: "Customer card shows live data from Flexcube/T24 or its API layer.", status: core.enabled ? "Live" : "Off", ok: core.enabled, href: "/admin/core-banking" },
             { name: "REST API", note: "Other systems create and look up tickets and customers.", status: `${activeKeys.length} key${activeKeys.length === 1 ? "" : "s"}`, ok: activeKeys.length > 0, href: "/admin/integrations?tab=keys" },
             { name: "Webhooks", note: "CX360 pushes events to other systems (core banking, BI, telephony).", status: `${webhooks.filter((w) => w.active).length} active`, ok: webhooks.some((w) => w.active), href: "/admin/integrations?tab=webhooks" },
           ].map((c) => (
@@ -150,7 +154,7 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
           ))}
           <h2 className="text-sm font-semibold pt-3">Planned channels</h2>
           <div className="grid sm:grid-cols-2 gap-2">
-            {[["Inbound email → tickets", "Customers email in, a ticket opens"], ["WhatsApp Business", "Two-way customer chat"], ["Voice / telephony", "Call logging and click-to-call"], ["Core banking lookup", "Live balances and transactions on the customer card"]].map(([n, d]) => (
+            {[["Inbound email → tickets", "Customers email in, a ticket opens"], ["WhatsApp Business", "Two-way customer chat"], ["Voice / telephony", "Call logging and click-to-call"], ].map(([n, d]) => (
               <div key={n} className="card p-3 flex items-center justify-between gap-2 text-sm"><div><div className="font-medium">{n}</div><div className="text-xs text-ink-950/50 dark:text-surface/50">{d}</div></div><span className="pill-neutral shrink-0">Planned</span></div>
             ))}
           </div>
