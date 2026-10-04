@@ -1,0 +1,14 @@
+import { runJob } from "@/lib/monitoring";
+import { runSlaCheck } from "./sla-check";
+import { runDispatchEvents } from "./dispatch-events";
+import { runDispatchNotifications } from "./dispatch-notifications";
+
+export const JOBS = {
+  "sla-check": { label: "SLA check", every: "every 2 min", run: runSlaCheck },
+  "dispatch-events": { label: "Workflow & webhook events", every: "every minute", run: runDispatchEvents },
+  "dispatch-notifications": { label: "Email & SMS delivery", every: "every minute", run: runDispatchNotifications },
+} as const;
+export type JobName = keyof typeof JOBS;
+export const isJobName = (s: string): s is JobName => s in JOBS;
+
+export const runNamedJob = (name: JobName) => runJob(name, JOBS[name].run as () => Promise<Record<string, unknown>>);

@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/tenant";
 import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { CaseNumberPrefixEditor } from "@/components/admin/case-number-prefix-editor";
 import { actionLabel, entityLabel } from "@/lib/audit-query";
+import { parseDeliverySettings, connected } from "@/lib/delivery/config";
 import { ladderActive, parseNotificationSettings } from "@/lib/notification-settings";
 
 const PRIORITY_PILL: Record<string, string> = {
@@ -39,6 +40,8 @@ function Tile({ title, href, link, children, wide }: { title: string; href: stri
   );
 }
 
+const connectedAny = (raw: unknown) => { const d = parseDeliverySettings(raw); return connected(d.email) || connected(d.sms); };
+
 export default async function AdminPage() {
   const ctx = await requireSession();
   if (ctx.role !== "ADMIN") redirect("/dashboard");
@@ -47,7 +50,7 @@ export default async function AdminPage() {
   const [policies, memberCount, tenant, hasLogo, codeCount, unitCount, teamCount, keyCount, hookCount, recent] = await Promise.all([
     prisma.slaPolicy.findMany({ where: { tenantId: t } }),
     prisma.membership.count({ where: { tenantId: t } }),
-    prisma.tenant.findUnique({ where: { id: t }, select: { caseNumberPrefix: true, customerSummaryFields: true, businessHours: true, notificationSettings: true } }),
+    prisma.tenant.findUnique({ where: { id: t }, select: { deliverySettings: true, caseNumberPrefix: true, customerSummaryFields: true, businessHours: true, notificationSettings: true } }),
     prisma.tenant.count({ where: { id: t, logoDataUrl: { not: null } } }),
     prisma.caseCode.count({ where: { tenantId: t, active: true } }),
     prisma.unit.count({ where: { tenantId: t, active: true } }),
@@ -78,6 +81,7 @@ export default async function AdminPage() {
     { done: memberCount > 1, label: "Add your agents and supervisors", href: "/admin/users" },
     { done: summaryCount > 0, label: "Choose customer summary fields", href: "/admin/customer-summary" },
     { done: !!tenant?.businessHours, label: "Set business hours & holidays", href: "/admin/business-hours" },
+    { done: connectedAny(tenant?.deliverySettings), label: "Connect the bank's email & SMS", href: "/admin/notifications?tab=delivery" },
     { done: ladderActive(parseNotificationSettings(tenant?.notificationSettings)), label: "Set who gets SLA escalation emails", href: "/workflows" },
   ];
   const doneCount = checklist.filter((c) => c.done).length;
@@ -156,6 +160,10 @@ export default async function AdminPage() {
 
           <Tile title="Notification centre" href="/admin/notifications" link="Open">
             Edit the wording of every email and SMS — customer ticket updates, department escalations and SLA alerts — and see exactly what was sent.
+          </Tile>
+
+          <Tile title="System health" href="/admin/system" link="Open">
+            Are the background jobs running, is email/SMS going out, and has anything crashed? Includes a &ldquo;Run now&rdquo; button for each job.
           </Tile>
 
           <Tile title="SLA escalation" href="/workflows" link="Set up">

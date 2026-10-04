@@ -5,9 +5,9 @@ import { runNamedJob } from "@/lib/jobs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 26;
 
-// Called by the Netlify scheduled function (netlify/functions/dispatch-events.ts) with the CRON_SECRET.
+// Called by the Netlify scheduled function (netlify/functions/dispatch-notifications.ts) with the CRON_SECRET.
 export async function POST(req: NextRequest) {
   if (!cronAuthorized(req.headers.get("x-cron-secret"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const r = await runNamedJob("dispatch-events");
+  const r = await runNamedJob("dispatch-notifications");
   return NextResponse.json(r, { status: r.ok ? 200 : 500 });
 }

@@ -6,7 +6,7 @@ import { WorkflowsClient } from "@/components/workflows/workflows-client";
 import { SlaEscalationClient } from "@/components/workflows/sla-escalation-client";
 import { parseNotificationSettings } from "@/lib/notification-settings";
 import { loadTemplates } from "@/lib/notify";
-import { deliveryStatus } from "@/lib/delivery-status";
+import { getDeliveryStatus } from "@/lib/delivery-status";
 import { Clock, Mail, ScrollText, Timer } from "lucide-react";
 
 const DAY = 86_400_000;
@@ -54,7 +54,7 @@ export default async function WorkflowsPage() {
     const x = templates.get(k)!;
     return { enabled: true, subject: x.subject ?? "", body: x.body, isCustom: x.isCustom };
   };
-  const delivery = deliveryStatus();
+  const delivery = await getDeliveryStatus(ctx.tenantId);
 
   const stats = [
     { label: "Overdue now", value: overdue, tone: overdue > 0 ? "text-sla-breach" : "" },

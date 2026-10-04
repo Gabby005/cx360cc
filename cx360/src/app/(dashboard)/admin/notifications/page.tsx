@@ -5,7 +5,9 @@ import { requireSession } from "@/lib/tenant";
 import { parseRange } from "@/lib/analytics-range";
 import { DEFAULT_TEMPLATES, TEMPLATE_BY_KEY } from "@/lib/notification-templates";
 import { loadTemplates } from "@/lib/notify";
-import { deliveryStatus } from "@/lib/delivery-status";
+import { getDeliveryStatus } from "@/lib/delivery-status";
+import { DeliveryClient } from "@/components/notifications/delivery-client";
+import { parseDeliverySettings, secretStatus } from "@/lib/delivery/config";
 import { TemplateList } from "@/components/notifications/template-list";
 import { CheckCircle2, CircleAlert } from "lucide-react";
 
@@ -27,17 +29,17 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   const ctx = await requireSession();
   if (ctx.role !== "ADMIN") redirect("/dashboard");
   const t = ctx.tenantId;
-  const tab = searchParams.tab === "log" ? "log" : "templates";
-  const delivery = deliveryStatus();
+  const tab = searchParams.tab === "log" ? "log" : searchParams.tab === "delivery" ? "delivery" : "templates";
+  const delivery = await getDeliveryStatus(ctx.tenantId);
 
   const [tenant, templates, last24] = await Promise.all([
-    prisma.tenant.findUnique({ where: { id: t }, select: { name: true } }),
+    prisma.tenant.findUnique({ where: { id: t }, select: { name: true, deliverySettings: true } }),
     loadTemplates(prisma, t),
     prisma.notificationLog.groupBy({ by: ["channel", "status"], where: { tenantId: t, createdAt: { gte: new Date(Date.now() - 86_400_000) } }, _count: true }),
   ]);
 
   // ---- Delivery log (only fetched when that tab is open) ----
-  let logs: { id: string; channel: string; to: string; cc: string | null; subject: string | null; message: string; kind: string | null; status: string; relatedCaseId: string | null; createdAt: Date }[] = [];
+  let logs: { id: string; channel: string; to: string; cc: string | null; subject: string | null; message: string; kind: string | null; status: string; attempts: number; lastError: string | null; relatedCaseId: string | null; createdAt: Date }[] = [];
   let hasNext = false;
   let caseNo = new Map<string, string>();
   const range = searchParams.from && searchParams.to ? parseRange({ range: "custom", from: searchParams.from, to: searchParams.to }) : parseRange({ range: "7" });
@@ -56,7 +58,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE + 1,
-      select: { id: true, channel: true, to: true, cc: true, subject: true, message: true, kind: true, status: true, relatedCaseId: true, createdAt: true },
+      select: { id: true, channel: true, to: true, cc: true, subject: true, message: true, kind: true, status: true, attempts: true, lastError: true, relatedCaseId: true, createdAt: true },
     });
     hasNext = rows.length > PAGE_SIZE;
     logs = rows.slice(0, PAGE_SIZE);
@@ -65,6 +67,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
     caseNo = new Map(cs.map((c) => [c.id, c.caseNumber]));
   }
 
+  const deliverySettings = parseDeliverySettings(tenant?.deliverySettings);
   const items = DEFAULT_TEMPLATES.map((def) => {
     const x = templates.get(def.key)!;
     return { def, state: { enabled: x.enabled, subject: x.subject ?? "", body: x.body, isCustom: x.isCustom } };
@@ -94,8 +97,8 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-5">Every email and SMS CX360 sends: edit the wording, switch messages on or off, and see exactly what went out.</p>
 
       <div className="flex gap-1.5 mb-6">
-        {[{ k: "templates", l: "Message wording" }, { k: "log", l: "Delivery log" }].map((x) => (
-          <Link key={x.k} href={x.k === "log" ? "/admin/notifications?tab=log" : "/admin/notifications"} className={`px-4 py-1.5 rounded-full text-sm font-medium ${tab === x.k ? "bg-brand text-white" : "bg-surface dark:bg-ink-800 hover:bg-line-light dark:hover:bg-ink-700"}`}>
+        {[{ k: "templates", l: "Message wording" }, { k: "log", l: "Delivery log" }, { k: "delivery", l: "Delivery settings" }].map((x) => (
+          <Link key={x.k} href={x.k === "templates" ? "/admin/notifications" : `/admin/notifications?tab=${x.k}`} className={`px-4 py-1.5 rounded-full text-sm font-medium ${tab === x.k ? "bg-brand text-white" : "bg-surface dark:bg-ink-800 hover:bg-line-light dark:hover:bg-ink-700"}`}>
             {x.l}
           </Link>
         ))}
@@ -105,6 +108,8 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         <div className="min-w-0">
           {tab === "templates" ? (
             <TemplateList items={items} bankName={tenant?.name ?? ""} />
+          ) : tab === "delivery" ? (
+            <DeliveryClient initial={deliverySettings} secrets={secretStatus(deliverySettings)} />
           ) : (
             <>
               <form method="GET" className="flex flex-wrap items-center gap-2 mb-4">
@@ -123,9 +128,10 @@ export default async function NotificationsPage({ searchParams }: { searchParams
                 </select>
                 <select name="status" defaultValue={searchParams.status ?? ""} className="input !py-1.5 text-xs w-32">
                   <option value="">Any status</option>
-                  <option value="logged">Logged</option>
+                  <option value="queued">Queued</option>
                   <option value="sent">Sent</option>
                   <option value="failed">Failed</option>
+                  <option value="skipped">Skipped</option>
                 </select>
                 <button type="submit" className="btn-secondary text-xs">Apply</button>
                 <Link href="/admin/notifications?tab=log" className="text-xs text-brand hover:underline">Reset</Link>
@@ -139,10 +145,12 @@ export default async function NotificationsPage({ searchParams }: { searchParams
                         <span className="pill-neutral font-mono !py-0.5">{log.channel}</span>
                         <span className="text-xs font-medium">{log.kind ? (TEMPLATE_BY_KEY.get(log.kind)?.label ?? (log.kind.startsWith("test.") ? "Test message" : log.kind)) : "Message"}</span>
                         <span className={log.status === "sent" ? "pill-ok !py-0.5" : log.status === "failed" ? "pill-breach !py-0.5" : "pill-neutral !py-0.5"}>{log.status}</span>
+                        {log.attempts > 0 && log.status !== "sent" && <span className="text-[11px] text-ink-950/40 dark:text-surface/40">tried {log.attempts}×</span>}
                       </div>
                       <span className="text-xs text-ink-950/40 dark:text-surface/40 shrink-0">{when.format(log.createdAt)}</span>
                     </div>
                     <p className="text-xs text-ink-950/60 dark:text-surface/60">To: {log.to}{log.cc ? ` · Cc: ${log.cc}` : ""}</p>
+                    {log.lastError && log.status !== "sent" && <p className="text-xs text-sla-breach mt-0.5">{log.lastError}</p>}
                     {log.subject && <p className="text-sm font-medium mt-0.5">{log.subject}</p>}
                     <p className="text-sm text-ink-950/70 dark:text-surface/70 whitespace-pre-wrap line-clamp-3">{log.message}</p>
                     {log.relatedCaseId && (
@@ -177,7 +185,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
             </ul>
             {(!delivery.email || !delivery.sms) && (
               <p className="text-xs text-ink-950/50 dark:text-surface/50 mt-3">
-                Until a channel is connected, its messages are recorded in the Delivery log with status &ldquo;logged&rdquo; but not sent. All wording, recipients and timing set here are used as soon as it is.
+                Until a channel is connected, its messages wait in the queue (up to 24 hours) and go out as soon as it is. <Link href="/admin/notifications?tab=delivery" className="text-brand hover:underline">Connect it →</Link>
               </p>
             )}
             <div className="grid grid-cols-2 gap-2 mt-4">

@@ -28,7 +28,7 @@ const joinCc = (cc?: string[]) => (cc && cc.length ? cc.join(", ") : undefined);
  *
  * There's no email/SMS provider configured in this environment (no
  * SendGrid/Twilio/etc. credentials), so this logs the attempt to
- * NotificationLog with status "logged" rather than pretending to send.
+ * NotificationLog with status "queued"; the dispatch-notifications job delivers it and retries failures.
  * Wiring a real provider is a one-function change:
  *
  *   if (input.channel === "email") await sendGridClient.send({ ... });
@@ -50,7 +50,7 @@ export async function sendNotification(tx: Tx, input: SendNotificationInput): Pr
       relatedCaseId: input.relatedCaseId,
       cc: joinCc(input.cc),
       kind: input.kind,
-      status: "logged",
+      status: "queued",
     },
   });
 
@@ -76,7 +76,7 @@ export async function sendNotificationsBulk(tx: Tx, inputs: SendNotificationInpu
       relatedCaseId: i.relatedCaseId,
       cc: joinCc(i.cc),
       kind: i.kind,
-      status: "logged",
+      status: "queued",
     })),
   });
 }

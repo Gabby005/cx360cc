@@ -79,6 +79,42 @@ model NotificationTemplate {
   @@unique([tenantId, key])
 }`);
 
+edit("model", "Tenant", "Tenant.deliverySettings", /deliverySettings\s+Json\?/,
+  after(/^[ \t]*notificationSettings\s+Json\?.*$/m, "  deliverySettings Json? // how email/SMS reach the bank's own gateways (no secrets stored here)"));
+edit("model", "NotificationLog", "NotificationLog delivery fields", /nextAttemptAt\s+DateTime\?/,
+  after(/^[ \t]*cc\s+String\?.*$/m, "  attempts      Int      @default(0)\n  nextAttemptAt DateTime?\n  lockedUntil   DateTime?\n  lastError     String?\n  sentAt        DateTime?"));
+edit("model", "NotificationLog", "NotificationLog queue index", /\[status, nextAttemptAt\]/,
+  beforeClose("  @@index([status, nextAttemptAt])"));
+ensureModel("ErrorLog", `
+model ErrorLog {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  source      String   // server | client | job:<name>
+  message     String
+  stack       String?
+  path        String?
+  userId      String?
+  count       Int      @default(1)
+  fingerprint String   @unique
+  resolved    Boolean  @default(false)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([resolved, lastSeenAt])
+}`);
+ensureModel("JobRun", `
+model JobRun {
+  id         String    @id @default(cuid())
+  job        String
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  ok         Boolean   @default(false)
+  summary    String?
+  error      String?
+
+  @@index([job, startedAt])
+}`);
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");
