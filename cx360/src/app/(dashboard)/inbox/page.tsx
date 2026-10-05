@@ -2,7 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { InboxClient } from "@/components/inbox/inbox-client";
 
-export default async function InboxPage() {
+export const dynamic = "force-dynamic";
+
+export default async function InboxPage({ searchParams }: { searchParams: { channel?: string } }) {
   const ctx = await requireSession();
 
   const [interactions, customers] = await Promise.all([
@@ -11,7 +13,7 @@ export default async function InboxPage() {
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {
-        customer: { select: { id: true, firstName: true, lastName: true, segment: true, sentimentAvg: true } },
+        customer: { select: { id: true, firstName: true, lastName: true, segment: true, sentimentAvg: true, email: true, phone: true } },
         agent: { select: { id: true, name: true } },
       },
     }),
@@ -23,5 +25,5 @@ export default async function InboxPage() {
     }),
   ]);
 
-  return <InboxClient initialItems={JSON.parse(JSON.stringify(interactions))} customers={customers} />;
+  return <InboxClient initialItems={JSON.parse(JSON.stringify(interactions))} customers={customers} initialChannel={searchParams.channel && /^[A-Z]+$/.test(searchParams.channel) ? searchParams.channel : "all"} />;
 }

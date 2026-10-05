@@ -6,6 +6,9 @@ import { AnalyticsCharts } from "@/components/analytics/analytics-charts";
 import { RangeFilter } from "@/components/analytics/range-filter";
 import { TopDriversPanel } from "@/components/analytics/top-drivers-panel";
 import { getTopDrivers, DRIVER_LIMIT } from "@/lib/analytics-drivers";
+import { getChannelStats } from "@/lib/channel-stats";
+import { CHANNEL_ORDER } from "@/lib/channel-ui";
+import { ChannelReport, type ChannelReportData } from "@/components/analytics/channel-report";
 
 const HOUR = 3_600_000;
 const MIN = 60_000;
@@ -258,6 +261,28 @@ export default async function AnalyticsPage({
 
   const canExport = ctx.role === "ADMIN" || ctx.role === "SUPERVISOR";
 
+  // ---- Channel report (volume, reply time, missed calls) -----------------------
+  const cs = await getChannelStats(ctx.tenantId, start, end);
+  const waitingCustomers = new Map(
+    (await prisma.customer.findMany({
+      where: { tenantId: ctx.tenantId, id: { in: cs.missed.waitingList.slice(0, 20).map((m) => m.customerId) } },
+      select: { id: true, firstName: true, lastName: true, phone: true },
+    })).map((c) => [c.id, c])
+  );
+  const activeChannels = CHANNEL_ORDER.filter((c) => cs.channels.some((x) => x.channel === c && x.inbound > 0));
+  const channelReport: ChannelReportData = {
+    rangeLabel: range.label,
+    channels: cs.channels,
+    trendChannels: [...activeChannels],
+    trend: days.map((d) => ({ date: d.label, ...Object.fromEntries(activeChannels.map((c) => [c, cs.daily[d.key]?.[c] ?? 0])) })),
+    missed: { total: cs.missed.total, calledBack: cs.missed.calledBack, followedUp: cs.missed.followedUp, stillWaiting: cs.missed.stillWaiting, avgCallbackMins: cs.missed.avgCallbackMins },
+    waitingCalls: cs.missed.waitingList.slice(0, 20).map((m) => {
+      const c = waitingCustomers.get(m.customerId);
+      return { id: m.id, customerId: m.customerId, name: c ? `${c.firstName} ${c.lastName}` : "Unknown caller", phone: c?.phone ?? null, waitingMins: m.waitingMins };
+    }),
+    truncated: cs.truncated,
+  };
+
   return (
     <div className="h-full overflow-y-auto p-6 w-full max-w-[1600px]">
       <h1 className="text-lg font-semibold mb-1">Analytics</h1>
@@ -297,6 +322,8 @@ export default async function AnalyticsPage({
           />
         </div>
       </div>
+
+      <ChannelReport data={channelReport} />
     </div>
   );
 }

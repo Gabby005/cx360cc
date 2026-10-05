@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { AgentWorkspaceClient } from "@/components/agent-workspace/workspace-client";
 
+export const dynamic = "force-dynamic";
+
 export default async function AgentWorkspacePage() {
   const ctx = await requireSession();
 
@@ -15,9 +17,18 @@ export default async function AgentWorkspacePage() {
     include: {
       customer: true,
       slaPolicy: true,
-      interactions: { orderBy: { createdAt: "desc" }, take: 5 },
+      interactions: { orderBy: { createdAt: "desc" }, take: 8 },
     },
   });
+
+  const dayStart = new Date(new Date().setHours(0, 0, 0, 0));
+  const [resolvedToday, waitingByChannel, missedWaiting] = await Promise.all([
+    prisma.case.count({ where: { tenantId: ctx.tenantId, assignedToId: ctx.userId, resolvedAt: { gte: dayStart } } }),
+    prisma.interaction.groupBy({ by: ["channel"], where: { tenantId: ctx.tenantId, direction: "inbound", status: "NEW" }, _count: true }),
+    prisma.interaction.count({ where: { tenantId: ctx.tenantId, direction: "inbound", status: "NEW", channel: "VOICE", summary: { contains: "MISSED" } } }),
+  ]);
+  const inboxWaiting: Record<string, number> = {};
+  for (const r of waitingByChannel) inboxWaiting[r.channel] = r._count;
 
   const relevantArticles = await prisma.knowledgeArticle.findMany({
     where: { tenantId: ctx.tenantId, status: "PUBLISHED" },
@@ -30,7 +41,7 @@ export default async function AgentWorkspacePage() {
   // — the most common category among cases assigned to them, created
   // today. A tighter, personal version of the tenant-wide "Top drivers"
   // panel on the Analytics page.
-  const startOfDay = new Date(new Date().setHours(0, 0, 0, 0));
+  const startOfDay = dayStart;
   const todaysCases = await prisma.case.findMany({
     where: { tenantId: ctx.tenantId, assignedToId: ctx.userId, createdAt: { gte: startOfDay }, caseCodeId: { not: null } },
     select: { type: true, caseCode: { select: { category: true } } },
@@ -57,6 +68,9 @@ export default async function AgentWorkspacePage() {
       cases={JSON.parse(JSON.stringify(myCases))}
       articles={relevantArticles}
       topDriversToday={topDriversToday}
+      resolvedToday={resolvedToday}
+      inboxWaiting={inboxWaiting}
+      missedWaiting={missedWaiting}
     />
   );
 }
