@@ -142,6 +142,16 @@ model WebhookDelivery {
 edit("model", "Tenant", "Tenant.coreBankingSettings", /coreBankingSettings\s+Json\?/,
   after(/^[ \t]*deliverySettings\s+Json\?.*$/m, "  coreBankingSettings Json? // live core banking lookups (endpoints + field mapping; no secrets, no customer data)"));
 
+edit("model", "Tenant", "Tenant.channelSettings", /channelSettings\s+Json\?/,
+  after(/^[ \t]*coreBankingSettings\s+Json\?.*$/m, "  channelSettings Json? // inbound channels: mailbox polling, WhatsApp number (no secrets)"));
+edit("model", "Interaction", "Interaction.externalId/contact/subject", /externalId\s+String\?/,
+  after(/^[ \t]*caseId\s+String\?.*$/m, "  externalId  String?           // provider message id, so a re-delivered message is stored once\n  contact     String?           // the email address / phone number on the customer's side\n  subject     String?           // email subject"));
+edit("model", "Interaction", "Interaction channel unique + case index", /\[tenantId, channel, externalId\]/,
+  beforeClose("  @@unique([tenantId, channel, externalId])\n  @@index([tenantId, caseId])"));
+
+edit("enum", "Channel", "Channel.INSTAGRAM/MESSENGER", /INSTAGRAM/,
+  beforeClose("  INSTAGRAM\n  MESSENGER"));
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");

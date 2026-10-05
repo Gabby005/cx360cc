@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { deliver, parseDeliverySettings, connected, type DeliverySettings } from "@/lib/delivery";
+import { parseChannelSettings } from "@/lib/channels/config";
+import { sendMeta } from "@/lib/channels/meta";
 
 /**
  * Delivers queued email/SMS (NotificationLog rows) through the bank's own
@@ -40,6 +42,15 @@ export async function runDispatchNotifications() {
     return s;
   };
 
+  const channelsByTenant = new Map<string, unknown>();
+  const tenantChannels = async (tenantId: string) => {
+    if (!channelsByTenant.has(tenantId)) {
+      const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { channelSettings: true } });
+      channelsByTenant.set(tenantId, t?.channelSettings ?? null);
+    }
+    return channelsByTenant.get(tenantId);
+  };
+
   let sent = 0, failed = 0, retrying = 0, waiting = 0, claimedTotal = 0;
 
   while (Date.now() - started < TIME_BUDGET_MS) {
@@ -69,10 +80,11 @@ export async function runDispatchNotifications() {
         const row = claimed[i++];
         const at = new Date();
         const settings = await settingsFor(row.tenantId);
+        const isMeta = row.channel === "whatsapp" || row.channel === "instagram" || row.channel === "messenger";
         const channelCfg = row.channel === "sms" ? settings.sms : settings.email;
         const expired = at.getTime() - row.createdAt.getTime() > MAX_AGE_MS;
 
-        if (!connected(channelCfg)) {
+        if (!isMeta && !connected(channelCfg)) {
           if (expired) {
             await prisma.notificationLog.update({ where: { id: row.id }, data: { status: "skipped", lockedUntil: null, lastError: "No gateway was connected within 24 hours." } });
             failed++;
@@ -83,13 +95,15 @@ export async function runDispatchNotifications() {
           continue;
         }
 
-        const res = await deliver(settings, {
-          channel: row.channel === "sms" ? "sms" : "email",
-          to: row.to,
-          cc: splitList(row.cc),
-          subject: row.subject ?? undefined,
-          message: row.message,
-        });
+        const res = isMeta
+          ? await sendMeta(row.channel as "whatsapp" | "instagram" | "messenger", { to: row.to, message: row.message, phoneNumberId: parseChannelSettings((await tenantChannels(row.tenantId))).whatsapp.phoneNumberId })
+          : await deliver(settings, {
+              channel: row.channel === "sms" ? "sms" : "email",
+              to: row.to,
+              cc: splitList(row.cc),
+              subject: row.subject ?? undefined,
+              message: row.message,
+            });
 
         if (res.ok) {
           await prisma.notificationLog.update({ where: { id: row.id }, data: { status: "sent", sentAt: at, attempts: row.attempts + 1, lockedUntil: null, nextAttemptAt: null, lastError: null } });

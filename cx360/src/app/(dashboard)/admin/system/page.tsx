@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const TZ = process.env.APP_TIMEZONE || "Africa/Lagos";
 const when = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-const STALE_MIN: Record<JobName, number> = { "sla-check": 10, "dispatch-events": 5, "dispatch-notifications": 5, "dispatch-webhooks": 5 };
+const STALE_MIN: Record<JobName, number> = { "sla-check": 10, "dispatch-events": 5, "dispatch-notifications": 5, "dispatch-webhooks": 5, "poll-mailbox": 5 };
 
 function ago(d: Date) {
   const m = Math.max(0, Math.round((Date.now() - d.getTime()) / 60_000));
@@ -37,6 +37,19 @@ export default async function SystemPage() {
       <Link href="/admin" className="text-xs text-ink-950/50 dark:text-surface/50 hover:text-brand">← Admin centre</Link>
       <h1 className="text-lg font-semibold mt-2 mb-1">System health</h1>
       <p className="text-sm text-ink-950/60 dark:text-surface/60 mb-6">Are the background jobs running, is email/SMS going out, and has anything crashed?</p>
+
+      {(() => {
+        const todo: string[] = [];
+        if (process.env.SHOW_DEMO_LOGINS === "true" || process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === "true") todo.push("Demo login buttons are still showing — remove SHOW_DEMO_LOGINS and change the demo passwords before real staff use this.");
+        if (!process.env.NEXTAUTH_URL || /localhost|127\.0\.0\.1/.test(process.env.NEXTAUTH_URL)) todo.push("NEXTAUTH_URL should be the live https address of the site.");
+        if (!process.env.CRON_SECRET) todo.push("CRON_SECRET is not set — background jobs can't run.");
+        return todo.length ? (
+          <section className="mb-8 card p-4 border-l-4 border-sla-warning">
+            <h2 className="text-sm font-semibold mb-1">Before going live</h2>
+            <ul className="text-sm list-disc pl-5 space-y-1">{todo.map((t) => <li key={t}>{t}</li>)}</ul>
+          </section>
+        ) : null;
+      })()}
 
       <section className="mb-8">
         <h2 className="text-sm font-semibold mb-2">Background jobs</h2>

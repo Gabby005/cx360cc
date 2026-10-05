@@ -29,6 +29,7 @@ export const ACTION_LABELS: Record<string, string> = {
   settings_updated: "Settings changed",
   business_hours_updated: "Business hours changed",
   core_banking_settings_updated: "Core banking connection changed",
+  channel_settings_updated: "Channel settings changed",
   customer_core_viewed: "Customer core-banking data viewed",
   delivery_settings_updated: "Email/SMS delivery settings changed",
   notification_settings_updated: "Escalation settings changed",

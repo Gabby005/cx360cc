@@ -152,13 +152,12 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
               <span className={c.ok ? "pill-ok" : "pill-warning"}>{c.status}</span>
             </Link>
           ))}
-          <h2 className="text-sm font-semibold pt-3">Planned channels</h2>
-          <div className="grid sm:grid-cols-2 gap-2">
-            {[["Inbound email → tickets", "Customers email in, a ticket opens"], ["WhatsApp Business", "Two-way customer chat"], ["Voice / telephony", "Call logging and click-to-call"], ].map(([n, d]) => (
-              <div key={n} className="card p-3 flex items-center justify-between gap-2 text-sm"><div><div className="font-medium">{n}</div><div className="text-xs text-ink-950/50 dark:text-surface/50">{d}</div></div><span className="pill-neutral shrink-0">Planned</span></div>
-            ))}
-          </div>
-          <p className="text-xs text-ink-950/50 dark:text-surface/50">Until these are built, any of them can already talk to CX360 through the REST API and webhooks above.</p>
+          <h2 className="text-sm font-semibold pt-3">Customer channels</h2>
+          <Link href="/admin/channels" className="card p-4 flex items-center justify-between gap-3 hover:ring-1 hover:ring-brand/40">
+            <div><div className="text-sm font-medium">Email, SMS replies, WhatsApp, Instagram, Messenger, Avaya</div><div className="text-xs text-ink-950/50 dark:text-surface/50">Set up in Admin → Channels. X and TikTok are planned; LinkedIn is not possible.</div></div>
+            <span className="pill-neutral shrink-0">Open</span>
+          </Link>
+          <p className="text-xs text-ink-950/50 dark:text-surface/50">Any other system can already talk to CX360 through the REST API and webhooks above.</p>
         </section>
       )}
 

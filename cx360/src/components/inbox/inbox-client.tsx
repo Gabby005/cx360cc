@@ -9,12 +9,14 @@ import { CaseCodeSelect } from "@/components/cases/case-code-select";
 import { TransactionalToggle, UnitEscalationField } from "@/components/cases/transactional-fields";
 import { CASE_STATUSES, STATUS_LABEL, statusRequiresUnit } from "@/lib/case-status";
 
-const CHANNELS = ["VOICE", "EMAIL", "SMS", "WHATSAPP", "CHAT", "PORTAL", "SOCIAL"] as const;
+const CHANNELS = ["VOICE", "EMAIL", "SMS", "WHATSAPP", "INSTAGRAM", "MESSENGER", "CHAT", "PORTAL", "SOCIAL"] as const;
 const CHANNEL_ICON: Record<string, typeof Phone> = {
   VOICE: Phone,
   EMAIL: Mail,
   SMS: MessageSquare,
   WHATSAPP: MessageSquare,
+  INSTAGRAM: MessageSquare,
+  MESSENGER: MessageSquare,
   CHAT: MessageSquare,
   PORTAL: MessageSquare,
   SOCIAL: MessageSquare,
@@ -400,7 +402,10 @@ function ConvertToCaseForm({
         <label className="block text-xs font-medium mb-1">Status</label>
         <select
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            if (!statusRequiresUnit(e.target.value)) setUnitId("");
+          }}
           className="input"
         >
           {CASE_STATUSES.filter((s) => s !== "CLOSED").map((s) => (

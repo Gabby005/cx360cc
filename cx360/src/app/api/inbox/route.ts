@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
  */
 const ingestSchema = z.object({
   customerId: z.string(),
-  channel: z.enum(["VOICE", "EMAIL", "SMS", "WHATSAPP", "CHAT", "PORTAL", "SOCIAL"]),
+  channel: z.enum(["VOICE", "EMAIL", "SMS", "WHATSAPP", "INSTAGRAM", "MESSENGER", "CHAT", "PORTAL", "SOCIAL"]),
   summary: z.string().min(1),
   transcript: z.string().optional(),
 });

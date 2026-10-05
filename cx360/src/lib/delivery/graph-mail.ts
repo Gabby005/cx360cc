@@ -19,6 +19,38 @@ async function timed(doFetch: FetchLike, url: string, init: RequestInit) {
   }
 }
 
+/** App-only Microsoft Graph token (cached until shortly before it expires). Shared by sending and the inbound mailbox reader. */
+export async function getGraphToken(
+  cfg: { azureTenantId: string; clientId: string },
+  opts: { env?: Env; fetchImpl?: FetchLike } = {}
+): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
+  const env = opts.env ?? process.env;
+  const doFetch: FetchLike = opts.fetchImpl ?? ((u, i) => fetch(u, i));
+  const secret = env[secretEnvName(GRAPH_SECRET)];
+  if (!secret) return { ok: false, error: `The server variable ${secretEnvName(GRAPH_SECRET)} isn't set. Ask whoever manages Netlify to add it.` };
+  if (!/^[0-9a-f-]{36}$/i.test(cfg.azureTenantId) || !/^[0-9a-f-]{36}$/i.test(cfg.clientId)) return { ok: false, error: "The Microsoft tenant ID and client ID must be the 36-character IDs from Entra ID." };
+  const key = `${cfg.azureTenantId}:${cfg.clientId}`;
+  const cached = tokenCache.get(key);
+  if (cached && cached.expiresAt > Date.now() + 60_000) return { ok: true, token: cached.token };
+  try {
+    const res = await timed(doFetch, `https://login.microsoftonline.com/${cfg.azureTenantId}/oauth2/v2.0/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ client_id: cfg.clientId, client_secret: secret, scope: "https://graph.microsoft.com/.default", grant_type: "client_credentials" }).toString(),
+    });
+    const j = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error_description?: string };
+    if (!res.ok || !j.access_token) return { ok: false, error: `Microsoft sign-in failed (HTTP ${res.status}): ${(j.error_description ?? "").split("\r")[0].slice(0, 200)}`.replace(secret, "***") };
+    tokenCache.set(key, { token: j.access_token, expiresAt: Date.now() + (j.expires_in ?? 3000) * 1000 });
+    return { ok: true, token: j.access_token };
+  } catch (err) {
+    return { ok: false, error: (err as { name?: string })?.name === "AbortError" ? `Microsoft didn't answer within ${TIMEOUT_MS / 1000} seconds.` : `Couldn't reach Microsoft: ${(err as Error)?.message ?? "unknown error"}` };
+  }
+}
+
+export function dropGraphToken(cfg: { azureTenantId: string; clientId: string }) {
+  tokenCache.delete(`${cfg.azureTenantId}:${cfg.clientId}`);
+}
+
 /**
  * Sends email as a Microsoft 365 mailbox via Microsoft Graph (app-only access).
  * The bank's IT registers an app in Entra ID with the "Mail.Send" application

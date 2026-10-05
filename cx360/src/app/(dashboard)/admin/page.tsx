@@ -168,6 +168,10 @@ export default async function AdminPage() {
             {!parseCoreSettings(tenant?.coreBankingSettings).enabled && <span className="block mt-1 text-xs text-sla-warning">Off — agents see stored data only.</span>}
           </Tile>
 
+          <Tile title="Channels" href="/admin/channels" link="Connect">
+            Bring customer email, SMS replies, WhatsApp, Instagram and Messenger DMs into the Inbox, and connect the Avaya phone system for caller history.
+          </Tile>
+
           <Tile title="System health" href="/admin/system" link="Open">
             Are the background jobs running, is email/SMS going out, and has anything crashed? Includes a &ldquo;Run now&rdquo; button for each job.
           </Tile>

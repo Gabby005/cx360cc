@@ -2,7 +2,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
-export type NotificationChannel = "email" | "sms";
+export type NotificationChannel = "email" | "sms" | "whatsapp" | "instagram" | "messenger";
 
 export type SendNotificationInput = {
   tenantId: string;

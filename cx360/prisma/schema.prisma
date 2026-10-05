@@ -28,6 +28,7 @@ model Tenant {
   notificationSettings Json? // {sla:{enabledSince,trigger,priorities,level1,level2}} — SLA escalation ladder
   deliverySettings Json? // how email/SMS reach the bank's own gateways (no secrets stored here)
   coreBankingSettings Json? // live core banking lookups (endpoints + field mapping; no secrets, no customer data)
+  channelSettings Json? // inbound channels: mailbox polling, WhatsApp number (no secrets)
   createdAt         DateTime @default(now())
 
   users        Membership[]
@@ -38,7 +39,6 @@ model Tenant {
   notificationLogs NotificationLog[]
   notificationTemplates NotificationTemplate[]
   accountTransactions AccountTransaction[]
-  caseAttachments CaseAttachment[]
   slaPolicies  SlaPolicy[]
   queues       Queue[]
   teams        Team[]
@@ -50,6 +50,7 @@ model Tenant {
   events       Event[]
   auditLogs    AuditLog[]
   workflowRuns WorkflowExecutionLog[]
+  caseAttachments CaseAttachment[]
 }
 
 model User {
@@ -67,7 +68,7 @@ model User {
   qaReviewsGiven    QaReview[]       @relation("Reviewer")
   qaReviewsReceived QaReview[]       @relation("ReviewedAgent")
   caseNotes         CaseNote[]
-  uploadedAttachments CaseAttachment[]
+  caseAttachments   CaseAttachment[]
 }
 
 enum Role {
@@ -176,6 +177,8 @@ enum Channel {
   CHAT
   PORTAL
   SOCIAL
+  INSTAGRAM
+  MESSENGER
 }
 
 enum InteractionStatus {
@@ -198,6 +201,9 @@ model Interaction {
   sentiment   Float?            // -1..1
   durationSec Int?
   caseId      String?
+  externalId  String?           // provider message id, so a re-delivered message is stored once
+  contact     String?           // the email address / phone number on the customer's side
+  subject     String?           // email subject
   createdAt   DateTime          @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id])
@@ -207,6 +213,8 @@ model Interaction {
   @@index([tenantId, customerId])
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
+  @@unique([tenantId, channel, externalId])
+  @@index([tenantId, caseId])
 }
 
 // ---------------------------------------------------------------------------
@@ -272,11 +280,11 @@ model CaseCode {
   @@index([tenantId, type])
 }
 
-// A department/unit that transactional cases can be escalated to — e.g.
-// "Fraud Team" / fraud@bank.com. Admin manages this the same way as
-// CaseCode: bulk CSV upload (columns: name,email) or one at a time.
-// Selecting a unit on a transactional case fires a notification to its
-// email via src/lib/notifications.ts.
+// A department/unit that any case (transactional or not) can be escalated
+// to — e.g. "Fraud Team" / fraud@bank.com. Admin manages this the same way
+// as CaseCode: bulk CSV upload (columns: name,email) or one at a time.
+// Selecting a unit on a case fires a notification to its email via
+// src/lib/notifications.ts. Also the "department" dimension in Analytics.
 model Unit {
   id        String   @id @default(cuid())
   tenantId  String
@@ -306,7 +314,7 @@ model NotificationLog {
   subject       String?
   message       String
   relatedCaseId String?
-  status        String   @default("logged") // logged | sent | failed
+  status        String   @default("queued") // queued | sent | failed | skipped
   kind          String?  // template key, e.g. case.opened.email, sla.level1.email
   cc            String?  // copied addresses, comma separated
   attempts      Int      @default(0)
