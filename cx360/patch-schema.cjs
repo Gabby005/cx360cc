@@ -175,6 +175,10 @@ model ChannelToken {
   @@unique([tenantId, provider])
 }`);
 
+// ---- Speed indexes ----
+edit("model", "Interaction", "Interaction speed indexes", /@@index\(\[tenantId, direction, status, createdAt\]\)/,
+  beforeClose("  @@index([tenantId, direction, status, createdAt])\n  @@index([tenantId, customerId, createdAt])"));
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");

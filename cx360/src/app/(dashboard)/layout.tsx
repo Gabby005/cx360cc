@@ -13,14 +13,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/login");
 
+  // Both lookups at once (one round trip to the database instead of two).
+  const [account, tenant] = await Promise.all([
+    prisma.user.findUnique({ where: { id: session.user.id }, select: { mustChangePassword: true } }),
+    prisma.tenant.findUnique({
+      where: { id: session.user.tenantId },
+      select: { name: true, brandColor: true, logoDataUrl: true, businessHours: true },
+    }),
+  ]);
   // New accounts and admin resets must pick their own password before anything else.
-  const account = await prisma.user.findUnique({ where: { id: session.user.id }, select: { mustChangePassword: true } });
   if (account?.mustChangePassword) redirect("/change-password");
-
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: session.user.tenantId },
-    select: { name: true, brandColor: true, logoDataUrl: true, businessHours: true },
-  });
 
   return (
     <div className="h-screen flex bg-surface dark:bg-ink-950">

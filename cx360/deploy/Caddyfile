@@ -1,0 +1,26 @@
+# Web front door: HTTPS in, plain HTTP to the app inside the private network.
+# CX360_HOST is the address staff type, e.g. cx360.premiumtrust.local  (set in .env.production).
+#
+# CERTIFICATE — pick ONE:
+#  A) The bank's own certificate (recommended): put server.crt and server.key in deploy/certs/ and keep the line below.
+#  B) Quick test only: replace the "tls ..." line with   tls internal   (Caddy makes its own certificate; browsers will warn).
+{$CX360_HOST} {
+	tls /certs/server.crt /certs/server.key
+
+	encode gzip zstd
+	reverse_proxy app:3000 {
+		header_up X-Forwarded-Proto https
+	}
+
+	# Keep large uploads reasonable and hide the server name.
+	request_body {
+		max_size 10MB
+	}
+	header -Server
+}
+
+# PUBLIC WEBHOOKS (only if customers' WhatsApp / Instagram / X messages must reach you):
+# IT publishes ONLY these paths on the internet-facing address and forwards them to this server:
+#     /api/channels/meta      (WhatsApp, Instagram, Messenger)
+#     /api/channels/x         (X / Twitter)
+# Everything else stays internal. See docs/IT-REHEARSAL-GUIDE.md, section "Network".

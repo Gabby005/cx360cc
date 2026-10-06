@@ -134,6 +134,9 @@ export function checkGatewayUrl(raw: string): string | null {
   } catch {
     return "That isn't a valid web address.";
   }
+  // Self-hosted inside the bank network: the SMS gateway, core banking and webhooks are internal addresses.
+  // IT switches this on with the server variable CX360_ALLOW_INTERNAL_URLS=true.
+  if (process.env.CX360_ALLOW_INTERNAL_URLS === "true") return u.protocol === "https:" || u.protocol === "http:" ? null : "The address must start with http:// or https://";
   if (u.protocol !== "https:") return "The address must start with https://";
   const h = u.hostname.toLowerCase();
   if (h === "localhost" || h.endsWith(".local") || h.endsWith(".internal")) return "Internal addresses can't be used — the gateway must be reachable from the internet.";

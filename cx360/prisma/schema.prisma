@@ -221,6 +221,8 @@ model Interaction {
   @@index([tenantId, status])
   @@unique([tenantId, channel, externalId])
   @@index([tenantId, caseId])
+  @@index([tenantId, direction, status, createdAt])
+  @@index([tenantId, customerId, createdAt])
 }
 
 // ---------------------------------------------------------------------------

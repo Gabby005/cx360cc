@@ -8,8 +8,15 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  // Self-hosting (Docker) builds with BUILD_STANDALONE=1 to get a small, self-contained server. Netlify leaves it unset.
+  ...(process.env.BUILD_STANDALONE === "1" ? { output: "standalone" } : {}),
   experimental: {
     serverActions: { bodySizeLimit: '2mb' },
+    // Pages the user has just visited are reused for 30 seconds, so going back and forth between screens is instant
+    // (the screen still refreshes itself in the background, and Overview/Inbox refresh on their own timers).
+    staleTimes: { dynamic: 30, static: 180 },
+    // Only ship the icons/charts/date helpers that are actually used.
+    optimizePackageImports: ["lucide-react", "recharts", "date-fns"],
   },
   poweredByHeader: false,
   async headers() {

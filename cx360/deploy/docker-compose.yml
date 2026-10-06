@@ -1,0 +1,85 @@
+# CX360 on a bank server: app + database + scheduler + web front door.
+# Everything is configured by deploy/.env.production (copy .env.production.example and fill it in).
+#   Start / update :  docker compose --env-file .env.production up -d --build
+#   Stop           :  docker compose down            (data stays in the "pgdata" volume)
+name: cx360
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cx360
+      POSTGRES_USER: cx360
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cx360 -d cx360"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+    # No "ports:" on purpose — only the app can reach the database.
+
+  migrate:
+    build: { context: .., dockerfile: deploy/Dockerfile, target: migrate }
+    restart: "no"
+    env_file: .env.production
+    environment:
+      DATABASE_URL: postgresql://cx360:${POSTGRES_PASSWORD}@db:5432/cx360
+      DIRECT_URL: postgresql://cx360:${POSTGRES_PASSWORD}@db:5432/cx360
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal]
+
+  app:
+    build: { context: .., dockerfile: deploy/Dockerfile, target: runner }
+    image: cx360:latest
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      DATABASE_URL: postgresql://cx360:${POSTGRES_PASSWORD}@db:5432/cx360?connection_limit=10
+      DIRECT_URL: postgresql://cx360:${POSTGRES_PASSWORD}@db:5432/cx360
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    networks: [internal]
+
+  scheduler:
+    # Replaces Netlify's scheduled functions: calls the app's background jobs on time.
+    image: cx360:latest
+    restart: unless-stopped
+    command: ["node", "deploy/scheduler.cjs"]
+    env_file: .env.production
+    environment:
+      APP_URL: http://app:3000
+    depends_on:
+      app: { condition: service_healthy }
+    healthcheck: { disable: true }
+    networks: [internal]
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CX360_HOST: ${CX360_HOST:?set CX360_HOST (the address staff will type) in .env.production}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app: { condition: service_healthy }
+    networks: [internal]
+
+networks:
+  internal:
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

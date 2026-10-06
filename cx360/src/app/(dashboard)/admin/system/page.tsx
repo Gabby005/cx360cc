@@ -41,6 +41,16 @@ export default async function SystemPage() {
   if (!process.env.CRON_SECRET) todo.push("CRON_SECRET is not set — background jobs can't run.");
   if (!process.env.CX360_INBOUND_TOKEN) todo.push("CX360_INBOUND_TOKEN is not set — email, SMS-reply and Avaya call-log webhooks will refuse everything.");
 
+  // Speed check: how long one trivial database question takes (median of 3). This is the floor for every screen.
+  const dbTimes: number[] = [];
+  for (let i = 0; i < 3; i++) {
+    const t0 = performance.now();
+    await prisma.$queryRaw`SELECT 1`;
+    dbTimes.push(performance.now() - t0);
+  }
+  const dbMs = Math.round([...dbTimes].sort((a, b) => a - b)[1]);
+  const dbVerdict = dbMs < 40 ? { pill: "pill-ok", text: "Fast" } : dbMs < 120 ? { pill: "pill-warning", text: "Acceptable" } : { pill: "pill-breach", text: "Slow" };
+
   return (
     <div className="h-full overflow-y-auto p-6 w-full max-w-[1200px]">
       <Link href="/admin" className="text-xs text-ink-950/50 dark:text-surface/50 hover:text-brand">← Admin centre</Link>
@@ -53,6 +63,17 @@ export default async function SystemPage() {
           <ul className="text-sm list-disc pl-5 space-y-1">{todo.map((x) => <li key={x}>{x}</li>)}</ul>
         </section>
       )}
+
+      <section className="mb-8 card p-4">
+        <div className="flex items-center gap-2 mb-1">
+          <h2 className="text-sm font-semibold">Speed check</h2>
+          <span className={dbVerdict.pill}>{dbVerdict.text}</span>
+        </div>
+        <p className="text-sm">One database round trip took <span className="font-mono font-semibold">{dbMs} ms</span>. Every screen makes several of these.</p>
+        <p className="text-xs text-ink-950/50 dark:text-surface/50 mt-1">
+          Under 40 ms is healthy. If it is over 120 ms, the database is far from the server (or asleep): put them in the same region / data centre, use the pooled connection address, and check the database plan&apos;s compute allowance.
+        </p>
+      </section>
 
       <section className="mb-8">
         <h2 className="text-sm font-semibold mb-2">Background jobs</h2>
