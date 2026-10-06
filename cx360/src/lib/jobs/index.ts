@@ -3,6 +3,7 @@ import { runSlaCheck } from "./sla-check";
 import { runDispatchEvents } from "./dispatch-events";
 import { runPollMailbox } from "./poll-mailbox";
 import { runDispatchWebhooks } from "./dispatch-webhooks";
+import { runDataCleanup } from "./data-cleanup";
 import { runDispatchNotifications } from "./dispatch-notifications";
 
 export const JOBS = {
@@ -10,6 +11,7 @@ export const JOBS = {
   "dispatch-events": { label: "Workflow & webhook events", every: "every minute", run: runDispatchEvents },
   "poll-mailbox": { label: "Inbound email", every: "every minute", run: runPollMailbox },
   "dispatch-webhooks": { label: "Webhook delivery", every: "every minute", run: runDispatchWebhooks },
+  "data-cleanup": { label: "Housekeeping (old logs)", every: "daily at 02:00", run: runDataCleanup },
   "dispatch-notifications": { label: "Email & SMS delivery", every: "every minute", run: runDispatchNotifications },
 } as const;
 export type JobName = keyof typeof JOBS;

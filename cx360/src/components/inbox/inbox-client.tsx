@@ -13,7 +13,7 @@ import { CASE_STATUSES, STATUS_LABEL, statusRequiresUnit } from "@/lib/case-stat
 
 const CHANNELS = CHANNEL_ORDER;
 /** Channels CX360 can really send a reply on; the rest are recorded only. */
-const SENDABLE = new Set(["EMAIL", "SMS", "WHATSAPP", "INSTAGRAM", "MESSENGER"]);
+const SENDABLE = new Set(["EMAIL", "SMS", "WHATSAPP", "INSTAGRAM", "MESSENGER", "X"]);
 
 const ageMins = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
 const fmtAge = (m: number) => (m < 60 ? `${m}m` : m < 1440 ? `${Math.floor(m / 60)}h` : `${Math.floor(m / 1440)}d`);
@@ -84,7 +84,7 @@ export function InboxClient({ initialItems, customers, initialChannel = "all" }:
   return (
     <div className="h-full flex flex-col">
       {/* Channel tiles — click to filter the queue */}
-      <div className="px-4 py-3 border-b border-line-light dark:border-line-dark bg-surface-raised dark:bg-ink-900 grid grid-cols-3 sm:grid-cols-5 xl:grid-cols-10 gap-2">
+      <div className="px-4 py-3 border-b border-line-light dark:border-line-dark bg-surface-raised dark:bg-ink-900 grid grid-cols-3 sm:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-11 gap-2">
         <button
           onClick={() => setChannelFilter("all")}
           className={`rounded-lg border px-3 py-2 text-left transition ${channelFilter === "all" ? "border-brand bg-brand-light/50 dark:bg-brand/10" : "border-line-light dark:border-line-dark hover:bg-surface dark:hover:bg-ink-800"}`}

@@ -35,7 +35,7 @@ export function ChannelTiles({
   const byChannel = new Map(channels.map((c) => [c.channel, c]));
   const list = CHANNEL_ORDER.filter((c) => c !== "SOCIAL" || (byChannel.get(c)?.inbound ?? 0) > 0);
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-5 2xl:grid-cols-9 gap-3">
       {list.map((key) => {
         const c = byChannel.get(key);
         const color = CHANNEL_COLOR[key];

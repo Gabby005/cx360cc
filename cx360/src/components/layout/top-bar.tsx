@@ -76,6 +76,13 @@ export function TopBar({ user }: { user: Session["user"] }) {
             <div className="px-3 py-2 text-xs text-ink-950/50 dark:text-surface/50 border-b border-line-light dark:border-line-dark mb-1">
               {user.tenantName} · {ROLE_LABEL[user.role as Role] ?? user.role}
             </div>
+            <a
+              href="/change-password"
+              className="block text-left px-3 py-1.5 rounded-md mx-1 text-sm hover:bg-ink-950/5 dark:hover:bg-surface/10"
+              style={{ width: "calc(100% - 8px)" }}
+            >
+              Change password
+            </a>
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="w-full text-left px-3 py-1.5 rounded-md mx-1 text-sm hover:bg-ink-950/5 dark:hover:bg-surface/10"

@@ -88,6 +88,7 @@ function MemberRow({
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetPw, setResetPw] = useState<string | null>(null);
 
   async function update(patch: Partial<Pick<Member, "role" | "teamId" | "unitId">>) {
     setError(null);
@@ -116,6 +117,12 @@ function MemberRow({
         </div>
         <div className="text-xs text-ink-950/50 dark:text-surface/50 truncate">{member.user.email}</div>
         {error && <div className="text-xs text-sla-breach mt-0.5">{error}</div>}
+        {resetPw && (
+          <div className="text-xs mt-1 text-sla-warning">
+            New temporary password (shown once): <code className="font-mono bg-surface dark:bg-ink-950 px-1.5 py-0.5 rounded select-all">{resetPw}</code>
+            <button className="ml-2 underline" onClick={() => setResetPw(null)}>Hide</button>
+          </div>
+        )}
       </div>
       <select
         value={member.teamId ?? ""}
@@ -146,6 +153,22 @@ function MemberRow({
         ))}
       </select>
       <span className={`${ROLE_PILL[member.role]} shrink-0`}>{ROLE_LABEL[member.role]}</span>
+      {!isSelf && (
+        <button
+          disabled={saving}
+          onClick={async () => {
+            if (!confirm(`Reset the password for ${member.user.name}? They will be asked to choose a new one at next sign-in.`)) return;
+            setError(null);
+            const res = await fetch(`/api/admin/users/${member.id}/reset-password`, { method: "POST" });
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) return setError(d.error ?? "Could not reset");
+            setResetPw(d.tempPassword);
+          }}
+          className="btn-secondary !py-1 !px-2.5 text-xs shrink-0"
+        >
+          Reset password
+        </button>
+      )}
       {!isSelf && (
         <select
           value={member.role}

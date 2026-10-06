@@ -29,6 +29,7 @@ model Tenant {
   deliverySettings Json? // how email/SMS reach the bank's own gateways (no secrets stored here)
   coreBankingSettings Json? // live core banking lookups (endpoints + field mapping; no secrets, no customer data)
   channelSettings Json? // inbound channels: mailbox polling, WhatsApp number (no secrets)
+  channelTokens ChannelToken[]
   createdAt         DateTime @default(now())
 
   users        Membership[]
@@ -61,6 +62,10 @@ model User {
   avatarUrl    String?
   createdAt    DateTime @default(now())
 
+  failedLogins       Int      @default(0) // wrong passwords in a row; resets on a good login
+  lockedUntil        DateTime? // sign-in blocked until this time after too many wrong passwords
+  mustChangePassword Boolean  @default(false) // set for new accounts and admin resets
+  passwordChangedAt  DateTime?
   memberships       Membership[]
   assignedCases     Case[]           @relation("AssignedAgent")
   createdCases      Case[]           @relation("CaseCreator")
@@ -179,6 +184,7 @@ enum Channel {
   SOCIAL
   INSTAGRAM
   MESSENGER
+  X
 }
 
 enum InteractionStatus {
@@ -688,4 +694,18 @@ model WebhookDelivery {
   @@index([status, nextAttemptAt])
   @@index([tenantId, createdAt])
   @@index([subscriptionId, createdAt])
+}
+
+model ChannelToken {
+  id        String   @id @default(cuid())
+  tenantId  String
+  provider  String   // "x"
+  data      String   // encrypted sign-in tokens (AES-256-GCM, key in CX360_TOKEN_KEY)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, provider])
 }

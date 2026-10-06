@@ -8,8 +8,8 @@ import { REPLY_WINDOW_MS } from "@/lib/channels/meta";
 const replySchema = z.object({ message: z.string().min(1).max(4000) });
 
 /** Channels CX360 can really send on. Voice, chat, portal and the generic "social" type are record-only. */
-const SENDABLE: Record<string, NotificationChannel> = { EMAIL: "email", SMS: "sms", WHATSAPP: "whatsapp", INSTAGRAM: "instagram", MESSENGER: "messenger" };
-const socialKey = (c: string) => (c === "INSTAGRAM" ? "instagramId" : c === "MESSENGER" ? "messengerId" : null);
+const SENDABLE: Record<string, NotificationChannel> = { EMAIL: "email", SMS: "sms", WHATSAPP: "whatsapp", INSTAGRAM: "instagram", MESSENGER: "messenger", X: "x" };
+const socialKey = (c: string) => (c === "INSTAGRAM" ? "instagramId" : c === "MESSENGER" ? "messengerId" : c === "X" ? "xId" : null);
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {

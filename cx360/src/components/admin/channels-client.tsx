@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, CircleAlert } from "lucide-react";
 import type { ChannelSettings } from "@/lib/channels/config";
 
-type Urls = { email: string; sms: string; voice: string; meta: string; screenpop: string };
+type Urls = { email: string; sms: string; voice: string; meta: string; x: string; xCallback: string; screenpop: string };
+type XState = { connected: boolean; username: string; userId: string; webhookId: string };
+const X_FLASH: Record<string, string> = { connected: "X account connected. Next, click “Activate incoming messages”.", denied: "X sign-in was cancelled.", expired: "The X sign-in took too long — please try again.", missing: "Set CX360_X_CLIENT_ID and CX360_X_CLIENT_SECRET in Netlify first." };
 type Msg = { ok: boolean; text: string } | null;
 const inp = "input mt-1 text-sm";
 
@@ -24,13 +26,29 @@ function Card({ title, desc, children }: { title: string; desc: string; children
   return <section className="card p-5"><h2 className="text-sm font-semibold">{title}</h2><p className="text-xs text-ink-950/50 dark:text-surface/50 mb-2">{desc}</p>{children}</section>;
 }
 
-export function ChannelsClient({ initial, secrets, urls }: { initial: ChannelSettings; secrets: Record<string, boolean>; urls: Urls }) {
+export function ChannelsClient({ initial, secrets, urls, x: xInitial, xFlash }: { initial: ChannelSettings; secrets: Record<string, boolean>; urls: Urls; x: XState; xFlash: { code: string; msg: string } | null }) {
   const router = useRouter();
   const [s, setS] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
-  const dirty = JSON.stringify(s) !== JSON.stringify(saved);
+  const dirty = JSON.stringify({ ...s, x: 0 }) !== JSON.stringify({ ...saved, x: 0 });
+  const [x, setX] = useState(xInitial);
+  const [xBusy, setXBusy] = useState(false);
+  const [xMsg, setXMsg] = useState<Msg>(xFlash ? { ok: xFlash.code === "connected", text: xFlash.code === "error" ? xFlash.msg || "Could not connect X." : X_FLASH[xFlash.code] ?? "" } : null);
+
+  async function xCall(method: "POST" | "DELETE") {
+    if (method === "DELETE" && !confirm("Disconnect X? New X messages will stop arriving. Existing conversations stay.")) return;
+    setXBusy(true); setXMsg(null);
+    try {
+      const r = await fetch("/api/admin/channels/x", { method });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed");
+      setX(d.x); setXMsg({ ok: true, text: method === "POST" ? "Incoming X messages are now switched on." : "X disconnected." }); router.refresh();
+    } catch (e) {
+      setXMsg({ ok: false, text: e instanceof Error ? e.message : "Failed" });
+    } finally { setXBusy(false); }
+  }
 
   async function save() {
     setBusy(true); setMsg(null);
@@ -81,6 +99,22 @@ export function ChannelsClient({ initial, secrets, urls }: { initial: ChannelSet
         </label>
         <div className="mt-2"><Var name="META_PAGE_TOKEN" secrets={secrets} /></div>
         <p className="text-[11px] text-ink-950/50 dark:text-surface/50 mt-2">Meta must approve the app for messaging before real customers can use these. X (Twitter) and TikTok are not connected yet; LinkedIn does not allow it.</p>
+      </Card>
+
+      <Card title="X (Twitter)" desc="Direct messages to your bank's X account arrive in the Inbox, and agents reply from there. X charges per message (about $0.01 received, $0.015 sent). Encrypted X chats can't be read.">
+        <div className="text-sm">
+          {x.connected ? <>Connected as <strong>@{x.username || x.userId}</strong>. {x.webhookId ? <span className="text-emerald-600">Incoming messages are on.</span> : <span className="text-sla-warning">Incoming messages are not on yet.</span>}</> : "No X account connected."}
+        </div>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <a href="/api/channels/x/connect" className="btn-secondary text-xs !px-3 !py-1.5">{x.connected ? "Reconnect X account" : "Connect X account"}</a>
+          {x.connected && <button className="btn-primary text-xs !px-3 !py-1.5" disabled={xBusy} onClick={() => xCall("POST")}>{x.webhookId ? "Re-check incoming messages" : "Activate incoming messages"}</button>}
+          {x.connected && <button className="btn-ghost text-xs !px-3 !py-1.5" disabled={xBusy} onClick={() => xCall("DELETE")}>Disconnect</button>}
+        </div>
+        {xMsg && <p className={`text-sm mt-2 ${xMsg.ok ? "text-emerald-600" : "text-sla-breach"}`}>{xMsg.text}</p>}
+        <Url label="Callback address (paste into your X app's settings)" value={urls.xCallback} />
+        <Url label="Webhook address (the app registers this with X for you)" value={urls.x} />
+        <div className="mt-2"><Var name="X_CLIENT_ID" secrets={secrets} /><Var name="X_CLIENT_SECRET" secrets={secrets} /><Var name="TOKEN_KEY" secrets={secrets} /></div>
+        <p className="text-[11px] text-ink-950/50 dark:text-surface/50 mt-2">Set up the app at developer.x.com with OAuth 2.0 and read + write + direct message permissions, then add credits in the X developer console.</p>
       </Card>
 
       <Card title="Phone system (Avaya)" desc="Two parts: a pop-up with the caller's history when an agent answers, and a call log sent after each call.">

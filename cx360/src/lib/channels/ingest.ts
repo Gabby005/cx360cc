@@ -22,7 +22,7 @@ export type InboundMessage = {
   /** Voice: skip the "new" queue (answered calls are just history). */
   historyOnly?: boolean;
   /** Social: the key in customer details that holds this person's platform id. */
-  socialKey?: "instagramId" | "messengerId";
+  socialKey?: "instagramId" | "messengerId" | "xId";
 };
 
 export type IngestResult = { id: string | null; customerId: string | null; duplicate: boolean; linkedCaseId: string | null; createdCustomer: boolean; flagged?: boolean };
@@ -60,7 +60,7 @@ export async function ingestInbound(tenantId: string, m: InboundMessage, db: Db 
       data: {
         tenantId,
         firstName: clip(parts[0] ?? "Unknown", 60),
-        lastName: clip(parts.slice(1).join(" ") || (email ? m.contact : social ? m.channel === "INSTAGRAM" ? "(Instagram)" : "(Messenger)" : m.contact), 80),
+        lastName: clip(parts.slice(1).join(" ") || (email ? m.contact : social ? (m.channel === "INSTAGRAM" ? "(Instagram)" : m.channel === "X" ? "(X)" : "(Messenger)") : m.contact), 80),
         email: email ? m.contact : null,
         phone: !email && !social ? m.contact : null,
         segment: "Unverified",

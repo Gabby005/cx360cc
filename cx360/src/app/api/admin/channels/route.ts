@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 import { recordAudit } from "@/lib/audit";
+import { loadXStatus } from "@/lib/channels/x-status";
 import { CHANNEL_SECRETS, parseChannelSettings, secretSet, type ChannelSettings } from "@/lib/channels/config";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,8 @@ async function load(tenantId: string) {
   return {
     settings: parseChannelSettings(t?.channelSettings),
     secrets: status(),
-    urls: { email: `${base}/api/channels/email${q}`, sms: `${base}/api/channels/sms${q}`, voice: `${base}/api/channels/voice${q}`, meta: `${base}/api/channels/meta${q}`, screenpop: `${base}/screenpop?ani=` },
+    x: await loadXStatus(tenantId),
+    urls: { email: `${base}/api/channels/email${q}`, sms: `${base}/api/channels/sms${q}`, voice: `${base}/api/channels/voice${q}`, meta: `${base}/api/channels/meta${q}`, x: `${base}/api/channels/x${q}`, xCallback: `${base}/api/channels/x/callback`, screenpop: `${base}/screenpop?ani=` },
   };
 }
 
@@ -45,8 +47,10 @@ export async function PUT(req: NextRequest) {
   try {
     const ctx = await requireSession();
     requirePermission(ctx, "ADMIN");
-    const next: ChannelSettings = parseChannelSettings(schema.parse(await req.json()));
+    const body = schema.parse(await req.json());
     const before = await prisma.tenant.findUnique({ where: { id: ctx.tenantId }, select: { channelSettings: true } });
+    // The X connection is managed by its own buttons, never by this form.
+    const next: ChannelSettings = parseChannelSettings({ ...body, x: parseChannelSettings(before?.channelSettings).x });
     await prisma.tenant.update({ where: { id: ctx.tenantId }, data: { channelSettings: next as unknown as Prisma.InputJsonValue } });
     await recordAudit({ tenantId: ctx.tenantId, actorId: ctx.userId, action: "channel_settings_updated", entity: "Channels", entityId: ctx.tenantId, before: parseChannelSettings(before?.channelSettings), after: next });
     return NextResponse.json(await load(ctx.tenantId));

@@ -16,6 +16,9 @@ export const ACTION_LABELS: Record<string, string> = {
   user_created: "User created",
   user_added: "User added",
   user_updated: "User updated",
+  password_changed: "Password changed",
+  password_reset: "Password reset by an admin",
+  x_connected: "X (Twitter) account connected",
   role_changed: "Role changed",
   team_created: "Team created",
   // setup
@@ -30,6 +33,8 @@ export const ACTION_LABELS: Record<string, string> = {
   business_hours_updated: "Business hours changed",
   core_banking_settings_updated: "Core banking connection changed",
   channel_settings_updated: "Channel settings changed",
+  x_webhook_registered: "X incoming messages activated",
+  x_disconnected: "X account disconnected",
   customer_core_viewed: "Customer core-banking data viewed",
   delivery_settings_updated: "Email/SMS delivery settings changed",
   notification_settings_updated: "Escalation settings changed",

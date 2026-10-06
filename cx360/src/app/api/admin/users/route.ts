@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     const passwordHash = await hashPassword(tempPassword);
 
     const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({ data: { name: body.name, email: body.email, passwordHash } });
+      const user = await tx.user.create({ data: { name: body.name, email: body.email, passwordHash, mustChangePassword: true, passwordChangedAt: null } });
       const membership = await tx.membership.create({
         data: { userId: user.id, tenantId: ctx.tenantId, role: body.role, ...placement },
         include: { user: { select: { id: true, name: true, email: true, createdAt: true } } },

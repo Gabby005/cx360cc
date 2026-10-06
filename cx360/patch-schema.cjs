@@ -152,6 +152,29 @@ edit("model", "Interaction", "Interaction channel unique + case index", /\[tenan
 edit("enum", "Channel", "Channel.INSTAGRAM/MESSENGER", /INSTAGRAM/,
   beforeClose("  INSTAGRAM\n  MESSENGER"));
 
+
+// ---- Go-live hardening + X (Twitter) ----
+edit("model", "User", "User login protection fields", /failedLogins\s+Int/,
+  after(/^[ \t]*createdAt\s+DateTime\s+@default\(now\(\)\)\s*$/m, "  failedLogins       Int      @default(0) // wrong passwords in a row; resets on a good login\n  lockedUntil        DateTime? // sign-in blocked until this time after too many wrong passwords\n  mustChangePassword Boolean  @default(false) // set for new accounts and admin resets\n  passwordChangedAt  DateTime?"));
+edit("enum", "Channel", "Channel.X", /^\s*X\s*$/m,
+  beforeClose("  X"));
+edit("model", "Tenant", "Tenant.channelTokens", /channelTokens\s+ChannelToken\[\]/,
+  after(/^[ \t]*channelSettings\s+Json\?.*$/m, "  channelTokens ChannelToken[]"));
+ensureModel("ChannelToken", `
+model ChannelToken {
+  id        String   @id @default(cuid())
+  tenantId  String
+  provider  String   // "x"
+  data      String   // encrypted sign-in tokens (AES-256-GCM, key in CX360_TOKEN_KEY)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, provider])
+}`);
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");

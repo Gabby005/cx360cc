@@ -1,4 +1,4 @@
-import { Phone, Mail, MessageSquare, MessageCircle, Instagram, Send, Globe, AtSign, type LucideIcon } from "lucide-react";
+import { Phone, Mail, MessageSquare, MessageCircle, Instagram, Send, Globe, AtSign, Twitter, type LucideIcon } from "lucide-react";
 import { CHANNEL_COLOR } from "@/lib/channel-ui";
 
 export const CHANNEL_ICON: Record<string, LucideIcon> = {
@@ -8,6 +8,7 @@ export const CHANNEL_ICON: Record<string, LucideIcon> = {
   SMS: MessageSquare,
   INSTAGRAM: Instagram,
   MESSENGER: Send,
+  X: Twitter,
   CHAT: MessageSquare,
   PORTAL: Globe,
   SOCIAL: AtSign,

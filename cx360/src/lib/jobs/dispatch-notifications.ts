@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { deliver, parseDeliverySettings, connected, type DeliverySettings } from "@/lib/delivery";
 import { parseChannelSettings } from "@/lib/channels/config";
 import { sendMeta } from "@/lib/channels/meta";
+import { sendX } from "@/lib/channels/x";
+import { getXAccessToken } from "@/lib/channels/token-store";
 
 /**
  * Delivers queued email/SMS (NotificationLog rows) through the bank's own
@@ -80,7 +82,7 @@ export async function runDispatchNotifications() {
         const row = claimed[i++];
         const at = new Date();
         const settings = await settingsFor(row.tenantId);
-        const isMeta = row.channel === "whatsapp" || row.channel === "instagram" || row.channel === "messenger";
+        const isMeta = row.channel === "whatsapp" || row.channel === "instagram" || row.channel === "messenger" || row.channel === "x";
         const channelCfg = row.channel === "sms" ? settings.sms : settings.email;
         const expired = at.getTime() - row.createdAt.getTime() > MAX_AGE_MS;
 
@@ -95,7 +97,9 @@ export async function runDispatchNotifications() {
           continue;
         }
 
-        const res = isMeta
+        const res = row.channel === "x"
+          ? await (async () => { const t = await getXAccessToken(row.tenantId); return t.ok ? sendX(t.token, row.to, row.message) : { ok: false, error: t.error }; })()
+          : isMeta
           ? await sendMeta(row.channel as "whatsapp" | "instagram" | "messenger", { to: row.to, message: row.message, phoneNumberId: parseChannelSettings((await tenantChannels(row.tenantId))).whatsapp.phoneNumberId })
           : await deliver(settings, {
               channel: row.channel === "sms" ? "sms" : "email",

@@ -1,5 +1,5 @@
 /** One list of customer channels, in the order they're shown everywhere (tiles, filters, reports). */
-export const CHANNEL_ORDER = ["VOICE", "WHATSAPP", "EMAIL", "SMS", "INSTAGRAM", "MESSENGER", "CHAT", "PORTAL", "SOCIAL"] as const;
+export const CHANNEL_ORDER = ["VOICE", "WHATSAPP", "EMAIL", "SMS", "INSTAGRAM", "MESSENGER", "X", "CHAT", "PORTAL", "SOCIAL"] as const;
 export type ChannelKey = (typeof CHANNEL_ORDER)[number];
 
 export const CHANNEL_LABEL: Record<string, string> = {
@@ -9,6 +9,7 @@ export const CHANNEL_LABEL: Record<string, string> = {
   SMS: "SMS",
   INSTAGRAM: "Instagram",
   MESSENGER: "Messenger",
+  X: "X (Twitter)",
   CHAT: "Web chat",
   PORTAL: "Portal",
   SOCIAL: "Other social",
@@ -22,6 +23,7 @@ export const CHANNEL_COLOR: Record<string, string> = {
   SMS: "#D97706",
   INSTAGRAM: "#DB2777",
   MESSENGER: "#2563EB",
+  X: "#0F172A",
   CHAT: "#7C3AED",
   PORTAL: "#64748B",
   SOCIAL: "#94A3B8",
