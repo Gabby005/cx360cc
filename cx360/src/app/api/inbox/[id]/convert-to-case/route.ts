@@ -62,7 +62,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
       await tx.interaction.update({
         where: { id: interaction.id },
-        data: { caseId: newCase.id, status: "LINKED", agentId: ctx.userId },
+        data: { caseId: newCase.id, status: "LINKED", agentId: ctx.userId, readAt: interaction.readAt ?? new Date() },
       });
 
       return newCase;

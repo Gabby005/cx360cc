@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireSession, ApiError } from "@/lib/tenant";
+import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
+import { loadInbox } from "@/lib/inbox-data";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
 export const dynamic = "force-dynamic";
@@ -9,6 +10,10 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const ctx = await requireSession();
+    // The Inbox screen refreshes itself with ?feed=1 (open + recent closed/linked messages, with flags and read state).
+    if (req.nextUrl.searchParams.get("feed") === "1") {
+      return NextResponse.json({ interactions: await loadInbox(ctx.tenantId) });
+    }
     const status = req.nextUrl.searchParams.get("status") ?? "NEW";
     const channel = req.nextUrl.searchParams.get("channel");
 
@@ -53,6 +58,7 @@ const ingestSchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const ctx = await requireSession();
+    requirePermission(ctx, "AGENT");
     const body = ingestSchema.parse(await req.json());
 
     const interaction = await prisma.interaction.create({

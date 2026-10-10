@@ -179,6 +179,11 @@ model ChannelToken {
 edit("model", "Interaction", "Interaction speed indexes", /@@index\(\[tenantId, direction, status, createdAt\]\)/,
   beforeClose("  @@index([tenantId, direction, status, createdAt])\n  @@index([tenantId, customerId, createdAt])"));
 
+
+// ---- Inbox flags, colour tags, read/unread ----
+edit("model", "Interaction", "Interaction flag/colorTag/readAt", /readAt\s+DateTime\?/,
+  after(/^[ \t]*subject\s+String\?.*$/m, "  flag        String?           // priority flag: URGENT | HIGH | LOW (empty = normal)\n  colorTag    String?           // tracking colour chosen by the team (red, orange, ...)\n  readAt      DateTime?         // empty = unread"));
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");

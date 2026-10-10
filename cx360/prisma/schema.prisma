@@ -210,6 +210,9 @@ model Interaction {
   externalId  String?           // provider message id, so a re-delivered message is stored once
   contact     String?           // the email address / phone number on the customer's side
   subject     String?           // email subject
+  flag        String?           // priority flag: URGENT | HIGH | LOW (empty = normal)
+  colorTag    String?           // tracking colour chosen by the team (red, orange, ...)
+  readAt      DateTime?         // empty = unread
   createdAt   DateTime          @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id])

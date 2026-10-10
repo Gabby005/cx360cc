@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireSession, ApiError } from "@/lib/tenant";
+import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
+import { FLAGS, COLOR_TAGS } from "@/lib/inbox-ui";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
 export const dynamic = "force-dynamic";
@@ -32,17 +34,33 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 const patchSchema = z.object({
   status: z.enum(["NEW", "IN_PROGRESS", "LINKED", "CLOSED"]).optional(),
   agentId: z.string().nullable().optional(),
+  assignToMe: z.boolean().optional(),
+  flag: z.enum(FLAGS).nullable().optional(),
+  colorTag: z.enum(COLOR_TAGS).nullable().optional(),
+  /** true = mark read, false = mark unread (a closed message marked unread comes back to the open queue) */
+  read: z.boolean().optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const ctx = await requireSession();
-    const body = patchSchema.parse(await req.json());
+    requirePermission(ctx, "AGENT");
+    const { assignToMe, read, ...body } = patchSchema.parse(await req.json());
 
     const existing = await prisma.interaction.findFirst({ where: { id: params.id, tenantId: ctx.tenantId } });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const updated = await prisma.interaction.update({ where: { id: existing.id }, data: body });
+    const data: Prisma.InteractionUncheckedUpdateInput = { ...body };
+    if (assignToMe) data.agentId = ctx.userId;
+    if (read === true) data.readAt = existing.readAt ?? new Date();
+    if (read === false) {
+      data.readAt = null;
+      if (existing.status === "CLOSED" && body.status === undefined) data.status = "NEW";
+    }
+    // Closing a message counts as having read it.
+    if (body.status === "CLOSED" && read === undefined && !existing.readAt) data.readAt = new Date();
+
+    const updated = await prisma.interaction.update({ where: { id: existing.id }, data });
     return NextResponse.json({ interaction: updated });
   } catch (err) {
     return handleError(err);

@@ -50,6 +50,20 @@ To change your password any time, use the account menu → Change password.
    - **Convert to case** if it needs follow-up.
    - **Close without case** if the reply fully answers it.
 
+**Flags, colours and read / unread**
+
+| Tool | What it does |
+|---|---|
+| **Unread dot and bold name** | A new message is unread until someone opens it. Opening it marks it read. |
+| **Mark unread / Mark read** | Button above the message (or press `u`). Use it to remind yourself or the team to come back to it. |
+| **Flag** | Priority: Urgent (red), High (orange), Low (grey). Choose "Priority first" in the sort list to put urgent messages on top. Press `f` to cycle the flag. |
+| **Colour** | Eight colours for your own tracking (for example red for fraud, green for done). The colour shows as a stripe on the left of the message. Click a colour above the list to see only that colour. |
+| **Assign to me** | Marks you as the person handling it. The **Mine** tab lists your messages. |
+| **Close without a case** | The message stays in the Inbox under **Closed** (and **All**). It is marked read. Open it and press **Reopen as unread** to bring it back to the queue. |
+| **Select several** | Tick the boxes to the left of messages, then mark read or unread, flag, colour, assign to you or close them all at once. |
+
+The tabs at the top of the list are **Open**, **Unread**, **Read**, **Flagged**, **Mine**, **Closed** and **All**. Read state is shared by the whole team: if one person opens a message, it shows as read for everyone. Other shortcuts: `j` next message, `k` previous. The list refreshes itself every 45 seconds. Closed and linked messages are kept in view for 30 days.
+
 **Reply rules by channel**
 
 | Channel | Rule |

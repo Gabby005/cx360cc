@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
+import { loadInbox } from "@/lib/inbox-data";
 import { InboxClient } from "@/components/inbox/inbox-client";
 
 export const dynamic = "force-dynamic";
@@ -8,15 +9,7 @@ export default async function InboxPage({ searchParams }: { searchParams: { chan
   const ctx = await requireSession();
 
   const [interactions, customers] = await Promise.all([
-    prisma.interaction.findMany({
-      where: { tenantId: ctx.tenantId, direction: "inbound", status: { in: ["NEW", "IN_PROGRESS"] } },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-      include: {
-        customer: { select: { id: true, firstName: true, lastName: true, segment: true, sentimentAvg: true, email: true, phone: true } },
-        agent: { select: { id: true, name: true } },
-      },
-    }),
+    loadInbox(ctx.tenantId),
     prisma.customer.findMany({
       where: { tenantId: ctx.tenantId },
       select: { id: true, firstName: true, lastName: true },
@@ -25,5 +18,13 @@ export default async function InboxPage({ searchParams }: { searchParams: { chan
     }),
   ]);
 
-  return <InboxClient initialItems={JSON.parse(JSON.stringify(interactions))} customers={customers} initialChannel={searchParams.channel && /^[A-Z]+$/.test(searchParams.channel) ? searchParams.channel : "all"} />;
+  return (
+    <InboxClient
+      initialItems={JSON.parse(JSON.stringify(interactions))}
+      customers={customers}
+      currentUserId={ctx.userId}
+      canEdit={ctx.role !== "READ_ONLY"}
+      initialChannel={searchParams.channel && /^[A-Z]+$/.test(searchParams.channel) ? searchParams.channel : "all"}
+    />
+  );
 }

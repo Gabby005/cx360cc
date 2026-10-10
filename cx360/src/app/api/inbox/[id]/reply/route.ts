@@ -52,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const [, reply] = await prisma.$transaction(async (tx) => {
       const upd = await tx.interaction.update({
         where: { id: original.id },
-        data: { status: original.status === "NEW" ? "IN_PROGRESS" : original.status, agentId: ctx.userId },
+        data: { status: original.status === "NEW" ? "IN_PROGRESS" : original.status, agentId: ctx.userId, readAt: original.readAt ?? new Date() },
       });
       const created = await tx.interaction.create({
         data: {
