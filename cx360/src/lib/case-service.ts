@@ -268,37 +268,15 @@ export async function reopenCase(tx: Tx, tenantId: string, caseId: string, actor
 
 
 /**
- * "Reuse this ticket": starts a NEW ticket (new case number, fresh SLA clock) for the same customer,
- * pre-filled with the closed ticket's details (subject, type, priority, case code, description, transaction details).
- * Both tickets get a note and a history entry pointing at each other, so the link is never lost.
- * Only closed tickets can be reused.
+ * "Reuse this ticket" starts from the New case screen, pre-filled from a closed ticket, and saves as a NEW ticket.
+ * After it is saved this links the two: a note and a history entry on each ticket point at the other.
  */
-export async function reuseCase(tx: Tx, tenantId: string, caseId: string, actorId: string) {
-  const old = await tx.case.findFirst({ where: { id: caseId, tenantId } });
-  if (!old) throw new ApiError(404, "Case not found.");
-  if (old.status !== "CLOSED") throw new ApiError(400, "Only closed cases can be reused.");
-
-  const created = await createCase(tx, {
-    tenantId,
-    customerId: old.customerId,
-    type: old.type,
-    priority: old.priority,
-    subject: old.subject,
-    description: old.description ?? old.subject,
-    category: old.category ?? undefined,
-    caseCodeId: old.caseCodeId ?? undefined,
-    isTransactional: old.isTransactional,
-    transactionAmount: old.transactionAmount != null ? Number(old.transactionAmount) : undefined,
-    transactionCurrency: old.transactionCurrency ?? undefined,
-    queueId: old.queueId ?? undefined,
-    actorId,
-  });
-
-  await tx.caseNote.create({ data: { caseId: created.id, authorId: actorId, body: `Reused from ticket ${old.caseNumber}. The details were copied over.`, internal: true } });
+export async function linkReusedCase(tx: Tx, tenantId: string, oldCaseId: string, created: { id: string; caseNumber: string }, actorId: string) {
+  const old = await tx.case.findFirst({ where: { id: oldCaseId, tenantId }, select: { id: true, caseNumber: true } });
+  if (!old) return; // a stale link must never block saving the new ticket
+  await tx.caseNote.create({ data: { caseId: created.id, authorId: actorId, body: `Reused from ticket ${old.caseNumber}. The customer and details were carried over.`, internal: true } });
   await tx.caseNote.create({ data: { caseId: old.id, authorId: actorId, body: `Reused as new ticket ${created.caseNumber}.`, internal: true } });
   await tx.case.update({ where: { id: old.id }, data: { reopenedCount: { increment: 1 } } });
   await logCaseActivity(tx, { tenantId, caseId: created.id, actorId, action: "reused_from", after: { fromCaseId: old.id, fromCaseNumber: old.caseNumber } });
   await logCaseActivity(tx, { tenantId, caseId: old.id, actorId, action: "reused_as", after: { newCaseId: created.id, newCaseNumber: created.caseNumber } });
-
-  return created;
 }

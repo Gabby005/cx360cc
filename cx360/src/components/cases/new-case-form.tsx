@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatDistanceToNow } from "date-fns";
 import { Search, X } from "lucide-react";
 import { CustomerOverview } from "@/components/customers/customer-overview";
 import { CaseCodeSelect } from "@/components/cases/case-code-select";
@@ -10,18 +12,35 @@ import { CASE_STATUSES, STATUS_LABEL, statusRequiresUnit } from "@/lib/case-stat
 
 type Customer = { id: string; firstName: string; lastName: string; email: string | null; phone: string | null };
 
-export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Customer | null }) {
+/** A closed ticket whose details are used to fill in the form ("Reuse this ticket"). */
+export type ReuseInfo = {
+  id: string;
+  caseNumber: string;
+  status: string;
+  closedAt: string | null;
+  subject: string;
+  description: string;
+  type: string;
+  priority: string;
+  caseCodeId: string;
+  isTransactional: boolean;
+  amount: string;
+  currency: string;
+  interactions: { id: string; channel: string; direction: string; summary: string | null; createdAt: string }[];
+};
+
+export function NewCaseForm({ preselectedCustomer, reuse = null }: { preselectedCustomer: Customer | null; reuse?: ReuseInfo | null }) {
   const router = useRouter();
   const [customer, setCustomer] = useState<Customer | null>(preselectedCustomer);
-  const [subject, setSubject] = useState("");
-  const [description, setDescription] = useState("");
-  const [type, setType] = useState("SERVICE_REQUEST");
-  const [priority, setPriority] = useState("MEDIUM");
+  const [subject, setSubject] = useState(reuse?.subject ?? "");
+  const [description, setDescription] = useState(reuse?.description ?? "");
+  const [type, setType] = useState(reuse?.type ?? "SERVICE_REQUEST");
+  const [priority, setPriority] = useState(reuse?.priority ?? "MEDIUM");
   const [status, setStatus] = useState("NEW");
-  const [caseCodeId, setCaseCodeId] = useState("");
-  const [isTransactional, setIsTransactional] = useState(false);
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState("");
+  const [caseCodeId, setCaseCodeId] = useState(reuse?.caseCodeId ?? "");
+  const [isTransactional, setIsTransactional] = useState(reuse?.isTransactional ?? false);
+  const [amount, setAmount] = useState(reuse?.amount ?? "");
+  const [currency, setCurrency] = useState(reuse?.currency ?? "");
   const [unitId, setUnitId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -59,6 +78,7 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
         transactionAmount: isTransactional ? Number(amount) : undefined,
         transactionCurrency: isTransactional ? currency : undefined,
         escalatedUnitId: unitFieldVisible && unitId ? unitId : undefined,
+        reusedFromId: reuse?.id,
       }),
     });
     setSaving(false);
@@ -75,6 +95,28 @@ export function NewCaseForm({ preselectedCustomer }: { preselectedCustomer: Cust
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,50rem)_minmax(0,1fr)] gap-8 items-start">
     <form onSubmit={submit} className="space-y-5 [&_.input]:py-3 [&_.input]:text-base [&_label]:text-sm [&_label]:mb-1.5 [&_textarea]:min-h-[9rem]">
+      {reuse && (
+        <div className="rounded-lg border border-brand/40 bg-brand-light/40 dark:bg-brand/10 p-3.5 text-sm">
+          <p className="font-medium">
+            Reusing the details from ticket{" "}
+            <Link href={`/cases/${reuse.id}`} target="_blank" className="font-mono text-brand hover:underline">{reuse.caseNumber}</Link>
+            {reuse.closedAt ? <span className="text-ink-950/50 dark:text-surface/50 font-normal"> (closed {formatDistanceToNow(new Date(reuse.closedAt), { addSuffix: true })})</span> : null}
+          </p>
+          <p className="text-xs text-ink-950/60 dark:text-surface/60 mt-1">The customer and complaint are filled in. Change anything you need, then save. A new ticket number is issued and the old ticket stays closed.</p>
+          {reuse.interactions.length > 0 && (
+            <ul className="mt-2.5 space-y-1 border-t border-line-light dark:border-line-dark pt-2">
+              <li className="text-[11px] font-medium text-ink-950/50 dark:text-surface/50">Earlier messages on that ticket</li>
+              {reuse.interactions.map((i) => (
+                <li key={i.id} className="text-xs flex gap-2">
+                  <span className="shrink-0 text-ink-950/40 dark:text-surface/40">{i.direction === "outbound" ? "We" : "Customer"}:</span>
+                  <span className="truncate">{i.summary}</span>
+                  <span className="shrink-0 text-ink-950/40 dark:text-surface/40">{formatDistanceToNow(new Date(i.createdAt), { addSuffix: true })}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       <div>
         <label className="block text-xs font-medium mb-1">Customer</label>
         {customer ? (

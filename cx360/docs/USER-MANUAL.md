@@ -99,7 +99,8 @@ If a reply fails, the reason is shown on the screen. Try again or contact your s
 | Closed | Finished |
 
 - Add **comments** (internal notes) and **attachments** in the case timeline.
-- **Reuse this ticket** (on a closed ticket) creates a new ticket with a new ticket number, copied from the closed one: same customer, subject, type, priority, case code and description. Both tickets get a note linking to each other.
+- **Reuse this ticket** (on a closed ticket) is for the same customer coming back with the same complaint. It opens the *Log a new case* screen already filled in: the customer, subject, type, priority, case code and description, with the earlier messages shown for reference. Change anything, then save. A **new ticket number** is issued, and both tickets get a note pointing at each other.
+- **Reopen ticket** (on a closed ticket) brings back *that exact ticket*, with the same number and history. Use it when a ticket was closed by mistake.
 - **SLA colours:** green on track, amber close to the limit, red breached. Work red first.
 
 ## 4.5 The customer page

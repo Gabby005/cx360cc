@@ -1,33 +1,47 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Copy } from "lucide-react";
 
+/** Starts a NEW ticket for the same customer and complaint: opens the New case screen already filled in. */
 export function ReuseTicketButton({ caseId }: { caseId: string }) {
+  return (
+    <Link
+      href={`/cases/new?reuseFrom=${caseId}`}
+      className="btn-secondary text-xs"
+      title="Log a new ticket for the same customer and complaint. The details are filled in for you and a new ticket number is issued."
+    >
+      <Copy size={13} /> Reuse this ticket
+    </Link>
+  );
+}
+
+/** Brings back THIS exact ticket (same number, full history). For a ticket that was closed by mistake. */
+export function ReopenTicketButton({ caseId }: { caseId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function reuse() {
+  async function reopen() {
+    if (!window.confirm("Reopen this exact ticket? Use this when it was closed by mistake. To log a new ticket for the same complaint, use \"Reuse this ticket\" instead.")) return;
     setError(null);
     setLoading(true);
     const res = await fetch(`/api/cases/${caseId}/reopen`, { method: "POST" });
     setLoading(false);
     if (!res.ok) {
-      const { error: msg } = await res.json().catch(() => ({ error: "Failed to reuse ticket" }));
+      const { error: msg } = await res.json().catch(() => ({ error: "Failed to reopen ticket" }));
       setError(msg);
       return;
     }
-    const { case: created } = await res.json();
-    router.push(`/cases/${created.id}`);
     router.refresh();
   }
 
   return (
     <div className="flex items-center gap-2">
-      <button onClick={reuse} disabled={loading} className="btn-secondary text-xs" title="Creates a new ticket with a new ticket number, copied from this one">
-        <RotateCcw size={13} /> {loading ? "Creating new ticket…" : "Reuse this ticket"}
+      <button onClick={reopen} disabled={loading} className="btn-secondary text-xs" title="Bring this exact ticket back (same ticket number)">
+        <RotateCcw size={13} /> {loading ? "Reopening…" : "Reopen ticket"}
       </button>
       {error && <span className="text-xs text-sla-breach">{error}</span>}
     </div>

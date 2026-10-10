@@ -3,10 +3,40 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/tenant";
 import { NewCaseForm } from "@/components/cases/new-case-form";
 
-export default async function NewCasePage({ searchParams }: { searchParams: { customerId?: string } }) {
+export default async function NewCasePage({ searchParams }: { searchParams: { customerId?: string; reuseFrom?: string } }) {
   const ctx = await requireSession();
 
-  const preselectedCustomer = searchParams.customerId
+  // "Reuse this ticket": start from a closed ticket of the same customer, so nothing has to be searched or retyped.
+  const old = searchParams.reuseFrom
+    ? await prisma.case.findFirst({
+        where: { id: searchParams.reuseFrom, tenantId: ctx.tenantId },
+        include: {
+          customer: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+          interactions: { orderBy: { createdAt: "desc" }, take: 6, select: { id: true, channel: true, direction: true, summary: true, createdAt: true } },
+        },
+      })
+    : null;
+  const reuse = old
+    ? {
+        id: old.id,
+        caseNumber: old.caseNumber,
+        status: old.status,
+        closedAt: old.closedAt ? old.closedAt.toISOString() : null,
+        subject: old.subject,
+        description: old.description ?? "",
+        type: old.type,
+        priority: old.priority,
+        caseCodeId: old.caseCodeId ?? "",
+        isTransactional: old.isTransactional,
+        amount: old.transactionAmount != null ? String(old.transactionAmount) : "",
+        currency: old.transactionCurrency ?? "",
+        interactions: old.interactions.map((i) => ({ id: i.id, channel: i.channel, direction: i.direction, summary: i.summary, createdAt: i.createdAt.toISOString() })).reverse(),
+      }
+    : null;
+
+  const preselectedCustomer = old
+    ? old.customer
+    : searchParams.customerId
     ? await prisma.customer.findFirst({
         where: { id: searchParams.customerId, tenantId: ctx.tenantId },
         select: { id: true, firstName: true, lastName: true, email: true, phone: true },
@@ -24,7 +54,7 @@ export default async function NewCasePage({ searchParams }: { searchParams: { cu
         the Inbox.
       </p>
 
-      <NewCaseForm preselectedCustomer={preselectedCustomer} />
+      <NewCaseForm preselectedCustomer={preselectedCustomer} reuse={reuse} />
     </div>
   );
 }

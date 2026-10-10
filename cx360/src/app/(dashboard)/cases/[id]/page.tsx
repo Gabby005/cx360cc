@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/tenant";
 import { SlaBadge } from "@/components/cases/sla-badge";
 import { CaseActions } from "@/components/cases/case-actions";
 import { QaReviewPanel } from "@/components/cases/qa-review-panel";
-import { ReuseTicketButton } from "@/components/cases/reuse-ticket-button";
+import { ReuseTicketButton, ReopenTicketButton } from "@/components/cases/reuse-ticket-button";
 import { CaseTimeline } from "@/components/cases/case-timeline";
 import { AttachmentsPanel } from "@/components/cases/attachments-panel";
 import { formatDistanceToNow } from "date-fns";
@@ -107,6 +107,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
           ← All cases
         </Link>
         <div className="flex items-center gap-2">
+          {c.status === "CLOSED" && <ReopenTicketButton caseId={c.id} />}
           {c.status === "CLOSED" && <ReuseTicketButton caseId={c.id} />}
           <a
             href={`/cases/${c.id}/print`}

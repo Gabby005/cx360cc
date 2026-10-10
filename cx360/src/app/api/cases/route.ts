@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
-import { createCase } from "@/lib/case-service";
+import { createCase, linkReusedCase } from "@/lib/case-service";
 import { statusRequiresUnit } from "@/lib/case-status";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
@@ -54,6 +54,8 @@ const createSchema = z
     transactionCurrency: z.enum(CURRENCIES).optional(),
     escalatedUnitId: z.string().optional(),
     queueId: z.string().optional(),
+    /** Set when the case was started with "Reuse this ticket" from a closed ticket. */
+    reusedFromId: z.string().optional(),
   })
   .refine((data) => !data.isTransactional || (data.transactionAmount && data.transactionCurrency), {
     message: "Amount and currency are required for a transactional case.",
@@ -69,9 +71,12 @@ export async function POST(req: NextRequest) {
     const ctx = await requireSession();
     const body = createSchema.parse(await req.json());
 
-    const created = await prisma.$transaction((tx) =>
-      createCase(tx, { ...body, tenantId: ctx.tenantId, actorId: ctx.userId })
-    );
+    const { reusedFromId, ...input } = body;
+    const created = await prisma.$transaction(async (tx) => {
+      const c = await createCase(tx, { ...input, tenantId: ctx.tenantId, actorId: ctx.userId });
+      if (reusedFromId) await linkReusedCase(tx, ctx.tenantId, reusedFromId, c, ctx.userId);
+      return c;
+    });
 
     return NextResponse.json({ case: created }, { status: 201 });
   } catch (err) {

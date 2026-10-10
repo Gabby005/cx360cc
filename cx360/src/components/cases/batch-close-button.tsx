@@ -207,7 +207,7 @@ export function BatchCloseButton() {
                   <div className="flex gap-2"><dt className="w-20 text-ink-950/50 dark:text-surface/50">Category</dt><dd>{summary[1]}</dd></div>
                   <div className="flex gap-2"><dt className="w-20 text-ink-950/50 dark:text-surface/50">Status</dt><dd>{summary[2]}</dd></div>
                 </dl>
-                <p className="text-xs text-ink-950/60 dark:text-surface/60">A closed ticket can be reused from its page: that creates a new ticket with a new number.</p>
+                <p className="text-xs text-ink-950/60 dark:text-surface/60">On a closed ticket's page you can reopen that exact ticket, or reuse it to log a new ticket for the same complaint.</p>
                 {error && <p className="text-xs text-sla-breach">{error}</p>}
                 <div className="flex gap-2">
                   <button onClick={() => setStep("filters")} disabled={loading} className="btn-secondary text-sm flex-1">Back</button>

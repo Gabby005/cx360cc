@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type CaseCode = { id: string; code: string; category: string; subcategory: string | null };
 
@@ -23,9 +23,15 @@ export function CaseCodeSelect({
   const [loading, setLoading] = useState(false);
   const [category, setCategory] = useState("");
 
+  const first = useRef(true);
   useEffect(() => {
-    setCategory("");
-    onChange("");
+    // The first time, keep a code that was filled in from outside (e.g. "Reuse this ticket"); after that, changing the type clears it.
+    if (first.current && value) first.current = false;
+    else {
+      first.current = false;
+      setCategory("");
+      onChange("");
+    }
     setLoading(true);
     fetch(`/api/case-codes?type=${type}`)
       .then((r) => r.json())
