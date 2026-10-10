@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
 import { logCaseActivity, escalateToUnit } from "@/lib/case-service";
 import { notifyCaseStage } from "@/lib/notify";
+import { REOPEN_RULES } from "@/lib/reopen-policy";
 import { statusRequiresUnit } from "@/lib/case-status";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
@@ -147,10 +148,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
       // Customer is told once: "resolved" when it's marked Resolved; "closed" only if it was closed
       // without having been Resolved first (otherwise they'd get two messages for one outcome).
-      if (body.status === "RESOLVED" && existing.status !== "RESOLVED") {
+      const quiet = !!existing.reopenedAt && !REOPEN_RULES.notifyCustomer; // reopened tickets send no customer email/SMS
+      if (!quiet && body.status === "RESOLVED" && existing.status !== "RESOLVED") {
         await notifyCaseStage(tx, ctx.tenantId, existing.id, "resolved");
       }
-      if (body.status === "CLOSED" && existing.status !== "CLOSED" && existing.status !== "RESOLVED") {
+      if (!quiet && body.status === "CLOSED" && existing.status !== "CLOSED" && existing.status !== "RESOLVED") {
         await notifyCaseStage(tx, ctx.tenantId, existing.id, "closed");
       }
 
@@ -159,6 +161,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       // change requiring one, or was set some other way.
       if (body.escalatedUnitId && body.escalatedUnitId !== existing.escalatedUnitId) {
         const customer = await tx.customer.findUnique({ where: { id: existing.customerId } });
+        await logCaseActivity(tx, {
+          tenantId: ctx.tenantId,
+          caseId: existing.id,
+          actorId: ctx.userId,
+          action: "escalated",
+          before: { escalatedUnitId: existing.escalatedUnitId },
+          after: { escalatedUnitId: body.escalatedUnitId },
+        });
         await escalateToUnit(tx, {
           tenantId: ctx.tenantId,
           unitId: body.escalatedUnitId,

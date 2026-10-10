@@ -50,6 +50,10 @@ export function CaseActions({
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [pickedUnitId, setPickedUnitId] = useState("");
 
+  // Escalate to a unit at any time while the ticket is open (for example after it was reopened).
+  const [escalateOpen, setEscalateOpen] = useState(false);
+  const [escalateUnitId, setEscalateUnitId] = useState("");
+
   async function patch(body: Record<string, unknown>) {
     setError(null);
     const res = await fetch(`/api/cases/${caseId}`, {
@@ -93,6 +97,22 @@ export function CaseActions({
     }
   }
 
+  async function escalateNow() {
+    if (!escalateUnitId) {
+      setError("Select a unit to escalate to.");
+      return;
+    }
+    const unit = units.find((u) => u.id === escalateUnitId);
+    const ok = await patch({ escalatedUnitId: escalateUnitId });
+    if (ok) {
+      setLocalUnitId(escalateUnitId);
+      setLocalUnitName(unit?.name ?? null);
+      setEscalateOpen(false);
+      setEscalateUnitId("");
+    }
+  }
+
+  const isClosed = localStatus === "CLOSED";
   const assignedAgent = agents.find((a) => a.id === localAssignedToId);
 
   return (
@@ -216,6 +236,41 @@ export function CaseActions({
           )}
         </Field>
       )}
+
+      {/* Escalate: email a unit about this ticket. Available whenever the ticket is open, including after it was reopened. */}
+      <div className="rounded-lg border border-line-light dark:border-line-dark p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-ink-950/60 dark:text-surface/60">Escalation</span>
+          {!escalateOpen && !isClosed && (
+            <button onClick={() => setEscalateOpen(true)} className="text-xs text-brand hover:underline">
+              {localUnitId ? "Escalate to another unit" : "Escalate to a unit"}
+            </button>
+          )}
+        </div>
+        {isClosed ? (
+          <p className="text-xs text-ink-950/50 dark:text-surface/50">Reopen the ticket first if it needs to be escalated.</p>
+        ) : escalateOpen ? (
+          <>
+            <select value={escalateUnitId} onChange={(e) => setEscalateUnitId(e.target.value)} className="input text-sm">
+              <option value="">Select unit…</option>
+              {units
+                .filter((u) => u.id !== localUnitId)
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} ({u.email})
+                  </option>
+                ))}
+            </select>
+            <p className="text-[11px] text-ink-950/50 dark:text-surface/50">The unit is emailed about this ticket.</p>
+            <div className="flex gap-2">
+              <button onClick={escalateNow} className="btn-primary text-xs flex-1">Escalate</button>
+              <button onClick={() => { setEscalateOpen(false); setEscalateUnitId(""); }} className="btn-secondary text-xs flex-1">Cancel</button>
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-ink-950/50 dark:text-surface/50">{localUnitId ? `With ${localUnitName ?? "a unit"}.` : "Not escalated."}</p>
+        )}
+      </div>
 
       {isPending && <p className="text-xs text-ink-950/40 dark:text-surface/40">Saving…</p>}
       {error && <p className="text-xs text-sla-breach">{error}</p>}

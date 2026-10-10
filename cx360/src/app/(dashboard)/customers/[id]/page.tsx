@@ -62,7 +62,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs text-ink-950/50 dark:text-surface/50">{STATUS_LABEL[c.status] ?? c.status}</span>
                       {c.slaPolicy && (
-                        <SlaBadge createdAt={c.createdAt} respondedAt={c.respondedAt} resolvedAt={c.resolvedAt} policy={c.slaPolicy} />
+                        <SlaBadge createdAt={c.createdAt} startedAt={c.reopenedAt} respondedAt={c.respondedAt} resolvedAt={c.resolvedAt} policy={c.slaPolicy} />
                       )}
                     </div>
                   </li>

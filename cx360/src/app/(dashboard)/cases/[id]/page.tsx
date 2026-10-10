@@ -141,7 +141,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
           )}
         </div>
         {c.slaPolicy && (
-          <SlaBadge createdAt={c.createdAt} respondedAt={c.respondedAt} resolvedAt={c.resolvedAt} policy={c.slaPolicy} />
+          <SlaBadge createdAt={c.createdAt} startedAt={c.reopenedAt} respondedAt={c.respondedAt} resolvedAt={c.resolvedAt} policy={c.slaPolicy} />
         )}
       </div>
 
@@ -253,6 +253,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
           )}
 
           <CaseActions
+            key={`${c.status}|${c.priority}|${c.assignedToId}|${c.escalatedUnitId}`}
             caseId={c.id}
             status={c.status}
             priority={c.priority}

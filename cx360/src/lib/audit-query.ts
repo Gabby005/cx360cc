@@ -8,6 +8,7 @@ export const ACTION_LABELS: Record<string, string> = {
   reassigned: "Reassigned",
   priority_changed: "Priority changed",
   reopened: "Reopened",
+  escalated: "Escalated to a unit",
   reused_from: "Created by reusing an earlier ticket",
   reused_as: "Reused as a new ticket",
   inbox_teams_updated: "Inbox team codes changed",

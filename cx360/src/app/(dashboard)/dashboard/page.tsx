@@ -45,7 +45,7 @@ export default async function DashboardPage() {
   const businessHours = parseBusinessHours(tenantHours?.businessHours);
 
   const atRisk = casesWithPolicy
-    .map((c) => ({ case: c, clock: c.slaPolicy ? computeSlaClock({ createdAt: c.createdAt, respondedAt: c.respondedAt, resolvedAt: c.resolvedAt, policy: c.slaPolicy, businessHours }) : null }))
+    .map((c) => ({ case: c, clock: c.slaPolicy ? computeSlaClock({ createdAt: c.createdAt, startedAt: c.reopenedAt, respondedAt: c.respondedAt, resolvedAt: c.resolvedAt, policy: c.slaPolicy, businessHours }) : null }))
     .filter((x) => x.clock && x.clock.status !== "ok")
     .sort((a, b) => (b.clock!.elapsedPct ?? 0) - (a.clock!.elapsedPct ?? 0))
     .slice(0, 8);

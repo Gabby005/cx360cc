@@ -50,6 +50,7 @@ export default async function CasesPage({ searchParams }: { searchParams: Filter
           priority: true,
           status: true,
           createdAt: true,
+          reopenedAt: true,
           respondedAt: true,
           resolvedAt: true,
           closedAt: true,

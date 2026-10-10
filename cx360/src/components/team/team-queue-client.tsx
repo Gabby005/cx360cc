@@ -14,6 +14,7 @@ type CaseRow = {
   priority: string;
   status: string;
   createdAt: string;
+  reopenedAt?: string | null;
   respondedAt: string | null;
   resolvedAt: string | null;
   slaPolicy: SlaTarget | null;
@@ -111,6 +112,7 @@ export function TeamQueueClient({ cases, agents }: { cases: CaseRow[]; agents: {
                   {c.slaPolicy ? (
                     <SlaBadge
                       createdAt={new Date(c.createdAt)}
+                      startedAt={c.reopenedAt ? new Date(c.reopenedAt) : null}
                       respondedAt={c.respondedAt ? new Date(c.respondedAt) : null}
                       resolvedAt={c.resolvedAt ? new Date(c.resolvedAt) : null}
                       policy={c.slaPolicy}

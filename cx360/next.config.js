@@ -14,7 +14,7 @@ const nextConfig = {
     serverActions: { bodySizeLimit: '2mb' },
     // Pages the user has just visited are reused for 30 seconds, so going back and forth between screens is instant
     // (the screen still refreshes itself in the background, and Overview/Inbox refresh on their own timers).
-    staleTimes: { dynamic: 30, static: 180 },
+    staleTimes: { dynamic: 0, static: 180 },
     // Only ship the icons/charts/date helpers that are actually used.
     optimizePackageImports: ["lucide-react", "recharts", "date-fns"],
   },

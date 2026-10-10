@@ -187,6 +187,9 @@ edit("model", "Interaction", "Interaction flag/colorTag/readAt", /readAt\s+DateT
 edit("model", "Tenant", "Tenant.inboxTags", /inboxTags\s+Json\?/,
   after(/^[ \t]*channelSettings\s+Json\?.*$/m, "  inboxTags Json? // [{key,name,color}] team codes used to tag Inbox messages (Team A, Team B, ...)"));
 
+edit("model", "Case", "Case.reopenedAt", /reopenedAt\s+DateTime\?/,
+  after(/^[ \t]*reopenedCount\s+Int.*$/m, "  reopenedAt      DateTime? // when the ticket was last reopened; the SLA clock restarts from here"));
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");

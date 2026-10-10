@@ -24,6 +24,8 @@ export type SlaTarget = {
 
 export type SlaClockInput = {
   createdAt: Date;
+  /** When the ticket was last reopened. If set, the clock restarts from here instead of from createdAt. */
+  startedAt?: Date | null;
   respondedAt: Date | null;
   resolvedAt: Date | null;
   policy: SlaTarget;
@@ -53,7 +55,7 @@ export function computeSlaClock(input: SlaClockInput): SlaClockState {
     ? "resolution"
     : "response";
 
-  const anchor = input.createdAt;
+  const anchor = input.startedAt ?? input.createdAt;
   const targetMinutes =
     stage === "response" ? policy.responseMinutes : policy.resolutionMinutes;
 

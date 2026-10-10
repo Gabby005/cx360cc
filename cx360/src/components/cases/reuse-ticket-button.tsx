@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { RotateCcw, Copy } from "lucide-react";
 
 /** Starts a NEW ticket for the same customer and complaint: opens the New case screen already filled in. */
@@ -20,7 +19,6 @@ export function ReuseTicketButton({ caseId }: { caseId: string }) {
 
 /** Brings back THIS exact ticket (same number, full history). For a ticket that was closed by mistake. */
 export function ReopenTicketButton({ caseId }: { caseId: string }) {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +33,8 @@ export function ReopenTicketButton({ caseId }: { caseId: string }) {
       setError(msg);
       return;
     }
-    router.refresh();
+    // A full reload so the page can never show the old "Closed" state after a reopen.
+    window.location.reload();
   }
 
   return (

@@ -14,17 +14,19 @@ const STYLE: Record<string, { bg: string; text: string; icon: typeof Clock }> = 
 
 export function SlaBadge({
   createdAt,
+  startedAt,
   respondedAt,
   resolvedAt,
   policy,
 }: {
   createdAt: Date;
+  startedAt?: Date | null;
   respondedAt: Date | null;
   resolvedAt: Date | null;
   policy: SlaTarget;
 }) {
   const businessHours = useBusinessHours();
-  const clock = computeSlaClock({ createdAt, respondedAt, resolvedAt, policy, businessHours });
+  const clock = computeSlaClock({ createdAt, startedAt, respondedAt, resolvedAt, policy, businessHours });
 
   if (clock.stage === "met") {
     return (

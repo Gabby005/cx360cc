@@ -373,6 +373,7 @@ model Case {
   resolvedAt      DateTime?
   closedAt        DateTime?
   reopenedCount   Int        @default(0) // incremented each time a closed case is reused rather than creating a new one
+  reopenedAt      DateTime? // when the ticket was last reopened; the SLA clock restarts from here
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

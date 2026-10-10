@@ -8,6 +8,7 @@ import { type SendNotificationInput } from "@/lib/notifications";
 import { renderTemplate, formatDuration } from "@/lib/notification-templates";
 import { STATUS_LABEL } from "@/lib/case-status";
 import { decideEscalation } from "@/lib/sla-escalation";
+import { REOPEN_RULES } from "@/lib/reopen-policy";
 
 const BATCH = 500; // cases read per round trip
 const MAX_SCAN = 5000; // cases examined per run, so one run always finishes quickly; the next run continues
@@ -72,6 +73,7 @@ export async function runSlaCheck() {
         category: true,
         status: true,
         createdAt: true,
+        reopenedAt: true,
         respondedAt: true,
         resolvedAt: true,
         slaLastFlag: true,
@@ -95,9 +97,11 @@ export async function runSlaCheck() {
 
     for (const c of rows) {
       if (!c.slaPolicy) continue;
+      // A reopened ticket sends no SLA warnings or manager emails (rules in src/lib/reopen-policy.ts).
+      if (c.reopenedAt && !REOPEN_RULES.alertManagers) continue;
       const tc = await tenantCtx(c.tenantId);
       const businessHours = c.slaPolicy.businessHoursOnly ? tc.hours : null;
-      const clock = computeSlaClock({ createdAt: c.createdAt, respondedAt: c.respondedAt, resolvedAt: c.resolvedAt, policy: c.slaPolicy, businessHours });
+      const clock = computeSlaClock({ createdAt: c.createdAt, startedAt: c.reopenedAt, respondedAt: c.respondedAt, resolvedAt: c.resolvedAt, policy: c.slaPolicy, businessHours });
 
       // 1) warning / breach events — once per stage and level
       if (clock.status !== "ok") {

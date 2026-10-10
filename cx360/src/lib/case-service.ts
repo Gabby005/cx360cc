@@ -3,6 +3,7 @@ import { ApiError } from "./tenant";
 import { notifyCaseStage, sendUnitEscalationEmail } from "./notify";
 import { statusRequiresUnit } from "./case-status";
 import { addBusinessMinutes, parseBusinessHours } from "@/lib/business-hours";
+import { REOPEN_RULES } from "@/lib/reopen-policy";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -244,6 +245,27 @@ export async function reopenCase(tx: Tx, tenantId: string, caseId: string, actor
     throw new ApiError(400, "Only closed cases can be reused.");
   }
 
+  // Restart the SLA clock from now (rules in src/lib/reopen-policy.ts).
+  const now = new Date();
+  const sla: Prisma.CaseUncheckedUpdateInput = {};
+  if (REOPEN_RULES.restartSlaClock) {
+    const policy = await tx.slaPolicy.findUnique({ where: { tenantId_priority: { tenantId, priority: existing.priority } } });
+    const hours = policy?.businessHoursOnly
+      ? parseBusinessHours((await tx.tenant.findUnique({ where: { id: tenantId }, select: { businessHours: true } }))?.businessHours)
+      : null;
+    const dueAfter = (minutes: number) => (hours ? addBusinessMinutes(now, minutes, hours) : new Date(now.getTime() + minutes * 60_000));
+    sla.reopenedAt = now;
+    sla.respondedAt = null;
+    sla.slaLastFlag = null;
+    sla.slaBreachedAt = null;
+    sla.slaEscalationLevel = 0;
+    sla.slaPolicyId = policy?.id ?? existing.slaPolicyId;
+    sla.responseDueAt = policy ? dueAfter(policy.responseMinutes) : null;
+    sla.resolutionDueAt = policy ? dueAfter(policy.resolutionMinutes) : null;
+  } else {
+    sla.reopenedAt = now;
+  }
+
   const updated = await tx.case.update({
     where: { id: existing.id },
     data: {
@@ -251,6 +273,7 @@ export async function reopenCase(tx: Tx, tenantId: string, caseId: string, actor
       closedAt: null,
       resolvedAt: null,
       reopenedCount: { increment: 1 },
+      ...sla,
     },
   });
 
