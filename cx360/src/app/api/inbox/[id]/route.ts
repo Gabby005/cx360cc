@@ -3,7 +3,8 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
-import { FLAGS, COLOR_TAGS } from "@/lib/inbox-ui";
+import { FLAGS, TAG_KEY_RE } from "@/lib/inbox-ui";
+import { isKnownTagKey } from "@/lib/inbox-data";
 
 // Reads the signed-in session, so it must never be pre-rendered at build time.
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ const patchSchema = z.object({
   agentId: z.string().nullable().optional(),
   assignToMe: z.boolean().optional(),
   flag: z.enum(FLAGS).nullable().optional(),
-  colorTag: z.enum(COLOR_TAGS).nullable().optional(),
+  colorTag: z.string().regex(TAG_KEY_RE).nullable().optional(),
   /** true = mark read, false = mark unread (a closed message marked unread comes back to the open queue) */
   read: z.boolean().optional(),
 });
@@ -49,6 +50,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     const existing = await prisma.interaction.findFirst({ where: { id: params.id, tenantId: ctx.tenantId } });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    if (body.colorTag && !(await isKnownTagKey(ctx.tenantId, body.colorTag))) {
+      return NextResponse.json({ error: "That team code does not exist." }, { status: 400 });
+    }
 
     const data: Prisma.InteractionUncheckedUpdateInput = { ...body };
     if (assignToMe) data.agentId = ctx.userId;

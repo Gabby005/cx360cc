@@ -57,7 +57,7 @@ To change your password any time, use the account menu → Change password.
 | **Unread dot and bold name** | A new message is unread until someone opens it. Opening it marks it read. |
 | **Mark unread / Mark read** | Button above the message (or press `u`). Use it to remind yourself or the team to come back to it. |
 | **Flag** | Priority: Urgent (red), High (orange), Low (grey). Choose "Priority first" in the sort list to put urgent messages on top. Press `f` to cycle the flag. |
-| **Colour** | Eight colours for your own tracking (for example red for fraud, green for done). The colour shows as a stripe on the left of the message. Click a colour above the list to see only that colour. |
+| **Team code** | Tag a message with a team (Team A, Team B and so on). Each team has its own colour, shown as a stripe on the left and a small label. Hover over a message in the list and use the buttons that appear on its right: tag a team, flag it, or mark it read or unread. This does not open the message, so it stays unread. Pick a team from the "All teams" list to see only that team's messages. Supervisors and admins can add, rename, recolour or remove teams with **Manage teams** in the team menu. |
 | **Assign to me** | Marks you as the person handling it. The **Mine** tab lists your messages. |
 | **Close without a case** | The message stays in the Inbox under **Closed** (and **All**). It is marked read. Open it and press **Reopen as unread** to bring it back to the queue. |
 | **Select several** | Tick the boxes to the left of messages, then mark read or unread, flag, colour, assign to you or close them all at once. |
@@ -99,7 +99,7 @@ If a reply fails, the reason is shown on the screen. Try again or contact your s
 | Closed | Finished |
 
 - Add **comments** (internal notes) and **attachments** in the case timeline.
-- **Reuse this ticket** copies a closed case's details when the same customer comes back with a similar issue.
+- **Reuse this ticket** (on a closed ticket) creates a new ticket with a new ticket number, copied from the closed one: same customer, subject, type, priority, case code and description. Both tickets get a note linking to each other.
 - **SLA colours:** green on track, amber close to the limit, red breached. Work red first.
 
 ## 4.5 The customer page

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { COLOR_INFO, resolveTags, type ColorTag } from "@/lib/inbox-ui";
 
 /**
  * The messages the Inbox screen works with: everything still open (new or in progress),
@@ -19,4 +20,16 @@ export async function loadInbox(tenantId: string, days = 30) {
       agent: { select: { id: true, name: true } },
     },
   });
+}
+
+/** The team codes for this organisation (Team A, B, ... unless changed). */
+export async function loadTags(tenantId: string) {
+  const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { inboxTags: true } });
+  return resolveTags(t?.inboxTags);
+}
+
+/** True when `key` is one of this organisation's team codes (or an older colour). */
+export async function isKnownTagKey(tenantId: string, key: string) {
+  if (COLOR_INFO[key as ColorTag]) return true;
+  return (await loadTags(tenantId)).some((t) => t.key === key);
 }

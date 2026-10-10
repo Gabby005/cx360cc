@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
-import { FLAGS, COLOR_TAGS } from "@/lib/inbox-ui";
+import { FLAGS, TAG_KEY_RE } from "@/lib/inbox-ui";
+import { isKnownTagKey } from "@/lib/inbox-data";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ const schema = z.discriminatedUnion("action", [
   z.object({ ids: z.array(z.string()).min(1).max(200), action: z.literal("read") }),
   z.object({ ids: z.array(z.string()).min(1).max(200), action: z.literal("unread") }),
   z.object({ ids: z.array(z.string()).min(1).max(200), action: z.literal("flag"), value: z.enum(FLAGS).nullable() }),
-  z.object({ ids: z.array(z.string()).min(1).max(200), action: z.literal("color"), value: z.enum(COLOR_TAGS).nullable() }),
+  z.object({ ids: z.array(z.string()).min(1).max(200), action: z.literal("color"), value: z.string().regex(TAG_KEY_RE).nullable() }),
   z.object({ ids: z.array(z.string()).min(1).max(200), action: z.literal("close") }),
   z.object({ ids: z.array(z.string()).min(1).max(200), action: z.literal("assign") }),
 ]);
@@ -21,6 +22,9 @@ export async function POST(req: NextRequest) {
     const ctx = await requireSession();
     requirePermission(ctx, "AGENT");
     const body = schema.parse(await req.json());
+    if (body.action === "color" && body.value && !(await isKnownTagKey(ctx.tenantId, body.value))) {
+      return NextResponse.json({ error: "That team code does not exist." }, { status: 400 });
+    }
     const scope = { id: { in: body.ids }, tenantId: ctx.tenantId, direction: "inbound" };
     let count = 0;
 

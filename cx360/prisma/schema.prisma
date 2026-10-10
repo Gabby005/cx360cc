@@ -29,6 +29,7 @@ model Tenant {
   deliverySettings Json? // how email/SMS reach the bank's own gateways (no secrets stored here)
   coreBankingSettings Json? // live core banking lookups (endpoints + field mapping; no secrets, no customer data)
   channelSettings Json? // inbound channels: mailbox polling, WhatsApp number (no secrets)
+  inboxTags Json? // [{key,name,color}] team codes used to tag Inbox messages (Team A, Team B, ...)
   channelTokens ChannelToken[]
   createdAt         DateTime @default(now())
 

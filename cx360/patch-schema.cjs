@@ -184,6 +184,9 @@ edit("model", "Interaction", "Interaction speed indexes", /@@index\(\[tenantId, 
 edit("model", "Interaction", "Interaction flag/colorTag/readAt", /readAt\s+DateTime\?/,
   after(/^[ \t]*subject\s+String\?.*$/m, "  flag        String?           // priority flag: URGENT | HIGH | LOW (empty = normal)\n  colorTag    String?           // tracking colour chosen by the team (red, orange, ...)\n  readAt      DateTime?         // empty = unread"));
 
+edit("model", "Tenant", "Tenant.inboxTags", /inboxTags\s+Json\?/,
+  after(/^[ \t]*channelSettings\s+Json\?.*$/m, "  inboxTags Json? // [{key,name,color}] team codes used to tag Inbox messages (Team A, Team B, ...)"));
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");

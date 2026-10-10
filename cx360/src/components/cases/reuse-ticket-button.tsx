@@ -19,13 +19,15 @@ export function ReuseTicketButton({ caseId }: { caseId: string }) {
       setError(msg);
       return;
     }
+    const { case: created } = await res.json();
+    router.push(`/cases/${created.id}`);
     router.refresh();
   }
 
   return (
     <div className="flex items-center gap-2">
-      <button onClick={reuse} disabled={loading} className="btn-secondary text-xs">
-        <RotateCcw size={13} /> {loading ? "Reopening…" : "Reuse this ticket"}
+      <button onClick={reuse} disabled={loading} className="btn-secondary text-xs" title="Creates a new ticket with a new ticket number, copied from this one">
+        <RotateCcw size={13} /> {loading ? "Creating new ticket…" : "Reuse this ticket"}
       </button>
       {error && <span className="text-xs text-sla-breach">{error}</span>}
     </div>
