@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { rateLimit } from "@/lib/rate-limit";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   try {
     const ctx = await requireSession();
     requirePermission(ctx, "AGENT");
+    rateLimit(`handle:${ctx.userId}`, 60, 60_000);
     const b = schema.parse(await req.json());
     const c = await prisma.customer.findFirst({ where: { id: params.id, tenantId: ctx.tenantId }, select: { customFields: true } });
     if (!c) throw new ApiError(404, "Customer not found");

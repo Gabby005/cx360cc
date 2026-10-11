@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 import { parseDeliverySettings } from "@/lib/delivery/config";
+import { rateLimit } from "@/lib/rate-limit";
 import { checkFile, MAX_FILE_BYTES } from "@/lib/attachments";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export async function POST(req: NextRequest) {
   try {
     const ctx = await requireSession();
     requirePermission(ctx, "AGENT");
+    rateLimit(`upload:${ctx.userId}`, 20, 60_000);
 
     const t = await prisma.tenant.findUnique({ where: { id: ctx.tenantId }, select: { deliverySettings: true } });
     if (parseDeliverySettings(t?.deliverySettings).email.provider !== "graph") {

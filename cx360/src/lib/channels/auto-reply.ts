@@ -32,6 +32,10 @@ export async function maybeAutoReply(
   if (via === "email" && isRobotAddress(m.contact)) return false;
   if (!m.contact || m.contact.length > 200) return false;
 
+  // Safety valve: never more than 300 automatic replies an hour for the whole bank (stops a message storm or a reply loop).
+  const storm = await db.interaction.count({ where: { tenantId, direction: "outbound", externalId: { startsWith: "auto:" }, createdAt: { gte: new Date(Date.now() - 3_600_000) } } });
+  if (storm >= 300) return false;
+
   const since = new Date(Date.now() - s.autoReply.cooldownHours * 3_600_000);
   const recent = await db.interaction.findFirst({
     where: { tenantId, customerId: m.customerId, channel: sendChannel as Channel, direction: "outbound", externalId: { startsWith: "auto:" }, createdAt: { gte: since } },

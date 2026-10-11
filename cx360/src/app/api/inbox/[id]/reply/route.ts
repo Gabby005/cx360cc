@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
 import { sendNotification, type NotificationChannel } from "@/lib/notifications";
 import { REPLY_WINDOW_MS } from "@/lib/channels/meta";
+import { rateLimit } from "@/lib/rate-limit";
 import { resolveAttachments } from "@/lib/attachment-db";
 import { parseMessaging, withSignature } from "@/lib/messaging";
 
@@ -16,6 +17,7 @@ const socialKey = (c: string) => (c === "INSTAGRAM" ? "instagramId" : c === "MES
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const ctx = await requireSession();
+    rateLimit(`reply:${ctx.userId}`, 60, 60_000);
     const body = replySchema.parse(await req.json());
 
     const original = await prisma.interaction.findFirst({

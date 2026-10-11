@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requirePermission, ApiError } from "@/lib/tenant";
 import { sendNotification } from "@/lib/notifications";
+import { rateLimit } from "@/lib/rate-limit";
 import { resolveAttachments } from "@/lib/attachment-db";
 import { parseMessaging, withSignature } from "@/lib/messaging";
 
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
   try {
     const ctx = await requireSession();
     requirePermission(ctx, "AGENT");
+    rateLimit(`compose:${ctx.userId}`, 20, 60_000);
     const b = schema.parse(await req.json());
 
     const files = await resolveAttachments(ctx.tenantId, b.attachmentIds);

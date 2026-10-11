@@ -57,7 +57,7 @@ Avaya (call log)    : PBX / middleware POSTs to /api/channels/voice             
 | Address | A DNS name, for example `cx360.premiumtrust.local` | Staff type this. |
 | Certificate | Certificate and key for that name (`server.crt`, `server.key`) | From the bank's internal CA. |
 | Time | NTP synchronised | SLA clocks depend on correct time. |
-| Backup storage | A second machine or share for backup copies | A backup on the same server is not a backup. |
+| Backup storage | A second machine or share for backup copies. Plan for at least 20 GB, more if agents attach many files | A backup on the same server is not a backup. Email attachments (up to 4 MB per email) are stored in the database for 30 days and are included in the backup. |
 | Outbound access | See section 4 | Only what the connected channels need. |
 | Mailbox permission | Microsoft Entra app with `Mail.ReadWrite` and `Mail.Send` | Only if using email. |
 
@@ -147,6 +147,12 @@ Tick each one. "Expected" is what a pass looks like.
 | 12 | Branding | Admin → Branding: upload logo | Logo shows on login and menu | ☐ |
 | 13 | Reboot | `sudo reboot`; wait 3 minutes | CX360 comes back by itself, nothing to start by hand | ☐ |
 | 14 | Load test (optional) | 30 people click through screens for 10 minutes | Speed check stays under 120 ms; no errors on System health | ☐ |
+| 15 | Signature | Admin → Messages & signature: set bank name and survey link, Save. Agent sends an email reply from the Inbox | Email arrives with the thank-you lines, agent name and a clickable survey link | ☐ |
+| 16 | Auto-reply | Switch on the Email auto-reply. Send a mail to the CX360 mailbox from a personal address, twice within a few minutes | One automatic reply only (second message inside the cooldown gets none) | ☐ |
+| 17 | New email + attachment | Inbox → envelope button: send to a test address with a 1 MB PDF attached | Mail arrives with the PDF; message shows under System health → Email queue as sent | ☐ |
+| 18 | Attachment limits | Try a 5 MB file and a `.exe` | Both refused with a clear message | ☐ |
+| 19 | Registered line | Log a ticket and untick "registered line", type another number | Ticket shows "Not on registered line" and the number used | ☐ |
+| 20 | Failure retry | Disconnect the server from the internet for 2 minutes, send an email with an attachment, reconnect | Email shows waiting, then is delivered with its attachment | ☐ |
 
 ## Phase D — Connect the channels (as available)
 
@@ -282,3 +288,17 @@ Do this only after the rehearsal passes and the business owner agrees a cut-over
 # Appendix C — Using the bank's own PostgreSQL instead
 
 Remove the `db` service from `docker-compose.yml` (and the `depends_on: db` lines), then set `DATABASE_URL` and `DIRECT_URL` in `.env.production` to the bank database (PostgreSQL 14 or newer). The `DATABASE_URL` / `DIRECT_URL` lines under `environment:` in the compose file override the env file, so delete those lines too. The database user needs permission to create tables (for migrations). Backups then become the DBA's responsibility; keep `backup.sh` only for the bundled database.
+
+
+# Appendix D — Security measures built in
+
+| Area | What is in place |
+|---|---|
+| Sign-in | Passwords must be strong; five wrong attempts pause the account for 15 minutes; new and reset accounts must change the password at first sign-in |
+| Browser protection | Page cannot be shown inside another site, no plug-ins, forms post only to CX360, HTTPS enforced (HSTS), server name hidden |
+| Webhooks | Meta and X messages are signature-checked; email, SMS-reply and call-log webhooks need the shared token |
+| Secrets | Gateway and channel secrets live only in `.env.production`; saved X tokens are encrypted in the database |
+| Email attachments | Max 3 files, 3 MB each, 4 MB total; programs and scripts (`.exe`, `.bat`, `.js` …) refused; files are never opened or served back to browsers; deleted after 30 days |
+| Abuse limits | Per-person limits on uploads, new emails and replies; automatic replies capped at once per customer per cooldown and 300 an hour in total; robot addresses (no-reply, mailer-daemon) never get one |
+| Audit | Settings changes (including signature and auto-replies) are written to the audit trail |
+| Database | Never exposed outside the server; backups kept 14 days |
