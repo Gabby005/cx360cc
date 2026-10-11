@@ -30,6 +30,7 @@ model Tenant {
   coreBankingSettings Json? // live core banking lookups (endpoints + field mapping; no secrets, no customer data)
   channelSettings Json? // inbound channels: mailbox polling, WhatsApp number (no secrets)
   inboxTags Json? // [{key,name,color}] team codes used to tag Inbox messages (Team A, Team B, ...)
+  messagingSettings Json? // email signature + per-channel auto-replies
   channelTokens ChannelToken[]
   createdAt         DateTime @default(now())
 
@@ -374,6 +375,8 @@ model Case {
   closedAt        DateTime?
   reopenedCount   Int        @default(0) // incremented each time a closed case is reused rather than creating a new one
   reopenedAt      DateTime? // when the ticket was last reopened; the SLA clock restarts from here
+  viaRegistered   Boolean? // was the customer using the line/email we have on file? (empty = not recorded)
+  contactUsed     String?  // the number/email they actually used, for the record
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -715,4 +718,18 @@ model ChannelToken {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, provider])
+}
+
+model MailAttachment {
+  id             String   @id @default(cuid())
+  tenantId       String
+  notificationId String?  // set once the email is queued; empty = uploaded but not sent yet
+  filename       String
+  contentType    String
+  size           Int
+  data           Bytes
+  createdAt      DateTime @default(now())
+
+  @@index([notificationId])
+  @@index([tenantId, createdAt])
 }

@@ -33,7 +33,7 @@ export function ChannelTiles({
   missedWaiting: number;
 }) {
   const byChannel = new Map(channels.map((c) => [c.channel, c]));
-  const list = CHANNEL_ORDER.filter((c) => c !== "SOCIAL" || (byChannel.get(c)?.inbound ?? 0) > 0);
+  const list = CHANNEL_ORDER.filter((c) => !["SOCIAL", "CHAT", "PORTAL"].includes(c) || (byChannel.get(c)?.inbound ?? 0) > 0);
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 2xl:grid-cols-9 gap-3">
       {list.map((key) => {

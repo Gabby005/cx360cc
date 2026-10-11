@@ -6,6 +6,8 @@ export type GatewayMessage = {
   cc?: string[];
   subject?: string;
   message: string;
+  /** Email only. Supported by the Microsoft 365 connection. */
+  attachments?: { name: string; contentType: string; contentBase64: string }[];
 };
 export type SendResult = { ok: boolean; error?: string };
 
@@ -94,6 +96,7 @@ export async function sendViaHttp(
   const env = opts.env ?? process.env;
   const doFetch: FetchLike = opts.fetchImpl ?? ((u, i) => fetch(u, i));
 
+  if (msg.attachments?.length) return { ok: false, error: "Attachments need the Microsoft 365 email connection; this gateway can't carry files." };
   const bad = checkGatewayUrl(cfg.url);
   if (bad) return { ok: false, error: bad };
 

@@ -4,8 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, ApiError } from "@/lib/tenant";
 import { sendNotification, type NotificationChannel } from "@/lib/notifications";
 import { REPLY_WINDOW_MS } from "@/lib/channels/meta";
+import { resolveAttachments } from "@/lib/attachment-db";
+import { parseMessaging, withSignature } from "@/lib/messaging";
 
-const replySchema = z.object({ message: z.string().min(1).max(4000) });
+const replySchema = z.object({ message: z.string().min(1).max(4000), subject: z.string().max(300).optional(), attachmentIds: z.array(z.string()).max(3).optional() });
 
 /** Channels CX360 can really send on. Voice, chat, portal and the generic "social" type are record-only. */
 const SENDABLE: Record<string, NotificationChannel> = { EMAIL: "email", SMS: "sms", WHATSAPP: "whatsapp", INSTAGRAM: "instagram", MESSENGER: "messenger", X: "x" };
@@ -23,6 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!original) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const sendChannel = SENDABLE[original.channel];
+    const files = sendChannel === "email" ? await resolveAttachments(ctx.tenantId, body.attachmentIds) : { ids: [], note: "" };
     let to: string | null = null;
     if (sendChannel) {
       const sk = socialKey(original.channel);
@@ -44,10 +47,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
     }
 
-    const subject = original.subject ? (/^re:/i.test(original.subject) ? original.subject : `Re: ${original.subject}`) : original.case ? `Re: ${original.case.caseNumber}` : "Reply from the bank";
-    const message = sendChannel === "email" && original.case && !body.message.includes(original.case.caseNumber)
+    const subject = body.subject?.trim() ? body.subject.trim() : original.subject ? (/^re:/i.test(original.subject) ? original.subject : `Re: ${original.subject}`) : original.case ? `Re: ${original.case.caseNumber}` : "Reply from the bank";
+    let message = sendChannel === "email" && original.case && !body.message.includes(original.case.caseNumber)
       ? `${body.message}\n\nReference: ${original.case.caseNumber}`
       : body.message;
+    if (sendChannel === "email") {
+      const [t, me] = await Promise.all([
+        prisma.tenant.findUnique({ where: { id: ctx.tenantId }, select: { messagingSettings: true } }),
+        prisma.user.findUnique({ where: { id: ctx.userId }, select: { name: true } }),
+      ]);
+      message = withSignature(message, me?.name ?? "Customer Service", parseMessaging(t?.messagingSettings));
+    }
 
     const [, reply] = await prisma.$transaction(async (tx) => {
       const upd = await tx.interaction.update({
@@ -62,14 +72,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           channel: original.channel,
           direction: "outbound",
           status: "IN_PROGRESS",
-          summary: body.message,
+          summary: body.message + files.note,
           caseId: original.caseId,
           contact: to ?? original.contact,
           subject: sendChannel === "email" ? subject : original.subject,
         },
       });
       if (sendChannel && to) {
-        await sendNotification(tx, { tenantId: ctx.tenantId, channel: sendChannel, to, subject: sendChannel === "email" ? subject : undefined, message, relatedCaseId: original.caseId ?? undefined, kind: "inbox.reply" });
+        await sendNotification(tx, { tenantId: ctx.tenantId, channel: sendChannel, to, subject: sendChannel === "email" ? subject : undefined, message, relatedCaseId: original.caseId ?? undefined, kind: "inbox.reply", attachmentIds: files.ids });
       }
       return [upd, created] as const;
     });

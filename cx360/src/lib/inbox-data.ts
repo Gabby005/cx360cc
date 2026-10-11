@@ -16,7 +16,7 @@ export async function loadInbox(tenantId: string, days = 30) {
     orderBy: { createdAt: "desc" },
     take: 400,
     include: {
-      customer: { select: { id: true, firstName: true, lastName: true, segment: true, sentimentAvg: true, email: true, phone: true } },
+      customer: { select: { id: true, firstName: true, lastName: true, segment: true, sentimentAvg: true, email: true, phone: true, customFields: true } },
       agent: { select: { id: true, name: true } },
     },
   });

@@ -15,6 +15,8 @@ export type SendNotificationInput = {
   cc?: string[];
   /** Which template this came from, e.g. "case.opened.email" — lets the log be filtered and escalations be traced. */
   kind?: string;
+  /** Files already uploaded with POST /api/inbox/attachments; they are tied to this email and sent with it (email only). */
+  attachmentIds?: string[];
 };
 
 const joinCc = (cc?: string[]) => (cc && cc.length ? cc.join(", ") : undefined);
@@ -37,10 +39,10 @@ const joinCc = (cc?: string[]) => (cc && cc.length ? cc.join(", ") : undefined);
  * ...right where the `console.log` line is below, then flip status to
  * "sent"/"failed" based on the provider's response.
  */
-export async function sendNotification(tx: Tx, input: SendNotificationInput): Promise<{ ok: boolean }> {
+export async function sendNotification(tx: Tx, input: SendNotificationInput): Promise<{ ok: boolean; id: string }> {
   console.log(`[notification:${input.channel}] to=${input.to}${input.cc?.length ? ` cc=${input.cc.join(",")}` : ""} ${input.subject ? `subject="${input.subject}" ` : ""}message="${input.message}"`);
 
-  await tx.notificationLog.create({
+  const row = await tx.notificationLog.create({
     data: {
       tenantId: input.tenantId,
       channel: input.channel,
@@ -54,7 +56,10 @@ export async function sendNotification(tx: Tx, input: SendNotificationInput): Pr
     },
   });
 
-  return { ok: true };
+  if (input.attachmentIds?.length && input.channel === "email") {
+    await tx.mailAttachment.updateMany({ where: { id: { in: input.attachmentIds }, tenantId: input.tenantId, notificationId: null }, data: { notificationId: row.id } });
+  }
+  return { ok: true, id: row.id };
 }
 
 /**

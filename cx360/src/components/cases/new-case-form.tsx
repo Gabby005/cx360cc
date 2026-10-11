@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Search, X } from "lucide-react";
 import { CustomerOverview } from "@/components/customers/customer-overview";
 import { CaseCodeSelect } from "@/components/cases/case-code-select";
+import { RegisteredLineField } from "@/components/cases/registered-line-field";
 import { TransactionalToggle, UnitEscalationField } from "@/components/cases/transactional-fields";
 import { CASE_STATUSES, STATUS_LABEL, statusRequiresUnit } from "@/lib/case-status";
 
@@ -42,6 +43,7 @@ export function NewCaseForm({ preselectedCustomer, reuse = null }: { preselected
   const [amount, setAmount] = useState(reuse?.amount ?? "");
   const [currency, setCurrency] = useState(reuse?.currency ?? "");
   const [unitId, setUnitId] = useState("");
+  const [line, setLine] = useState({ viaRegistered: true, contactUsed: "" });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -78,6 +80,8 @@ export function NewCaseForm({ preselectedCustomer, reuse = null }: { preselected
         transactionAmount: isTransactional ? Number(amount) : undefined,
         transactionCurrency: isTransactional ? currency : undefined,
         escalatedUnitId: unitFieldVisible && unitId ? unitId : undefined,
+        viaRegistered: line.viaRegistered,
+        contactUsed: line.viaRegistered ? undefined : line.contactUsed.trim() || undefined,
         reusedFromId: reuse?.id,
       }),
     });
@@ -179,6 +183,8 @@ export function NewCaseForm({ preselectedCustomer, reuse = null }: { preselected
           placeholder="Short summary of the issue"
         />
       </div>
+
+      <RegisteredLineField viaRegistered={line.viaRegistered} contactUsed={line.contactUsed} onChange={setLine} />
 
       <TransactionalToggle
         isTransactional={isTransactional}

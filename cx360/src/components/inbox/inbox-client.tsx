@@ -6,9 +6,12 @@ import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Plus, Send, PhoneCall, Search, AlertCircle, Flag, Mail, MailOpen, UserCheck, XCircle, RotateCcw, Users, Check, X as XIcon, Inbox as InboxIcon, Settings2, Trash2 } from "lucide-react";
 import { ChannelBadge } from "@/components/channels/channel-icon";
+import { AttachPicker, type Attached } from "@/components/inbox/attach-picker";
+import { identifierFor } from "@/lib/identifier";
 import { CHANNEL_ORDER, CHANNEL_COLOR, channelLabel } from "@/lib/channel-ui";
 import { FLAGS, FLAG_INFO, flagRank, tagFor, TAG_PALETTE, MAX_TAGS, type TeamTag } from "@/lib/inbox-ui";
 import { CaseCodeSelect } from "@/components/cases/case-code-select";
+import { RegisteredLineField } from "@/components/cases/registered-line-field";
 import { TransactionalToggle, UnitEscalationField } from "@/components/cases/transactional-fields";
 import { CASE_STATUSES, STATUS_LABEL, statusRequiresUnit } from "@/lib/case-status";
 
@@ -32,7 +35,7 @@ type Item = {
   flag?: string | null;
   colorTag?: string | null;
   readAt?: string | null;
-  customer: { id: string; firstName: string; lastName: string; segment: string | null; sentimentAvg: number | null; email?: string | null; phone?: string | null };
+  customer: { id: string; firstName: string; lastName: string; segment: string | null; sentimentAvg: number | null; email?: string | null; phone?: string | null; customFields?: unknown };
   agent: { id: string; name: string } | null;
 };
 
@@ -80,6 +83,7 @@ export function InboxClient({
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [thread, setThread] = useState<ThreadMsg[]>([]);
   const [showSimulate, setShowSimulate] = useState(false);
+  const [showCompose, setShowCompose] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [tags, setTags] = useState<TeamTag[]>(initialTags);
@@ -292,6 +296,11 @@ export function InboxClient({
                 <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search" className="input !pl-8 !py-1 text-xs" />
               </div>
               {canEdit && (
+                <button onClick={() => setShowCompose(true)} title="New email" className="w-7 h-7 shrink-0 rounded-full grid place-items-center text-ink-950/50 dark:text-surface/50 hover:bg-ink-950/5 dark:hover:bg-surface/10 hover:text-brand">
+                  <Mail size={15} />
+                </button>
+              )}
+              {canEdit && (
                 <button
                   onClick={() => setShowSimulate((v) => !v)}
                   title="Simulate an incoming message (stand-in for a real channel webhook)"
@@ -353,6 +362,7 @@ export function InboxClient({
             )}
           </div>
 
+          {showCompose && <ComposeEmail onClose={() => setShowCompose(false)} onSent={() => { setShowCompose(false); setNotice("Email sent."); router.refresh(); }} />}
           {showSimulate && (
             <SimulateForm
               customers={customers}
@@ -775,6 +785,12 @@ function ThreadView({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canSend = SENDABLE.has(selected.channel);
+  const isEmail = selected.channel === "EMAIL";
+  const ident = identifierFor(selected.channel, selected.contact, selected.customer);
+  const defaultSubject = selected.subject ? (/^re:/i.test(selected.subject) ? selected.subject : `Re: ${selected.subject}`) : "";
+  const [subject, setSubject] = useState(defaultSubject);
+  const [files, setFiles] = useState<Attached[]>([]);
+  useEffect(() => { setSubject(defaultSubject); setFiles([]); }, [selected.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function send() {
     if (!message.trim()) return;
@@ -783,13 +799,14 @@ function ThreadView({
     const res = await fetch(`/api/inbox/${selected.id}/reply`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify(isEmail ? { message, subject, attachmentIds: files.map((f) => f.id) } : { message }),
     });
     setSending(false);
     if (res.ok) {
       const { reply } = await res.json();
       onReplied(reply);
       setMessage("");
+      setFiles([]);
     } else {
       const d = await res.json().catch(() => ({ error: "Could not send" }));
       setError(d.error ?? "Could not send");
@@ -806,9 +823,12 @@ function ThreadView({
               {selected.customer.firstName} {selected.customer.lastName}
             </h2>
             <p className="text-sm text-ink-950/60 dark:text-surface/60 truncate">
-              {channelLabel(selected.channel)} · {selected.contact ?? selected.customer.segment ?? "No segment"}
-              {selected.subject ? ` · ${selected.subject}` : ""}
+              {channelLabel(selected.channel)} · {ident.value ?? selected.contact ?? selected.customer.segment ?? "No segment"}
+              {selected.channel !== "EMAIL" && selected.subject ? ` · ${selected.subject}` : ""}
             </p>
+            {ident.editKey && (
+              <HandleEditor customerId={selected.customer.id} fieldKey={ident.editKey} label={ident.editLabel!} value={ident.value} idHint={selected.contact ?? null} />
+            )}
           </div>
         </div>
         {selected.channel === "VOICE" && (selected.contact || selected.customer.phone) && (
@@ -822,26 +842,29 @@ function ThreadView({
         {loading ? (
           <p className="text-sm text-ink-950/40 dark:text-surface/40">Loading thread…</p>
         ) : (
-          thread.map((m) => (
-            <div key={m.id} className={`max-w-[85%] ${m.direction === "outbound" ? "ml-auto" : ""}`}>
-              <div
-                className={`rounded-2xl px-3.5 py-2.5 text-sm ${
-                  m.direction === "outbound"
-                    ? "bg-brand text-white rounded-br-md"
-                    : "bg-surface-raised dark:bg-ink-900 border border-line-light dark:border-line-dark rounded-bl-md"
-                }`}
-              >
-                {m.summary}
+          thread.map((m) => {
+            const auto = m.summary?.startsWith("[Auto-reply]");
+            const text = auto ? m.summary!.replace("[Auto-reply] ", "") : m.summary;
+            if (isEmail) {
+              return (
+                <div key={m.id} className="rounded-lg border border-line-light dark:border-line-dark bg-surface-raised dark:bg-ink-900 text-sm">
+                  <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-line-light dark:border-line-dark text-[11px] text-ink-950/60 dark:text-surface/60">
+                    <span className="truncate"><b>{m.direction === "outbound" ? "To" : "From"}:</b> {selected.contact ?? selected.customer.email ?? "—"}{auto && <span className="ml-2 pill-neutral !py-0 !text-[10px]">Auto-reply</span>}</span>
+                    <span className="shrink-0">{formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })}</span>
+                  </div>
+                  <div className="px-3 py-2.5 whitespace-pre-wrap">{text}</div>
+                </div>
+              );
+            }
+            return (
+              <div key={m.id} className={`max-w-[85%] ${m.direction === "outbound" ? "ml-auto" : ""}`}>
+                <div className={`rounded-2xl px-3.5 py-2.5 text-sm ${m.direction === "outbound" ? (auto ? "bg-brand/70 text-white" : "bg-brand text-white") + " rounded-br-md" : "bg-surface-raised dark:bg-ink-900 border border-line-light dark:border-line-dark rounded-bl-md"}`}>{text}</div>
+                <p className={`text-[10px] text-ink-950/40 dark:text-surface/40 mt-1 ${m.direction === "outbound" ? "text-right" : ""}`}>
+                  {auto ? "Auto-reply · " : ""}{formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })}
+                </p>
               </div>
-              <p
-                className={`text-[10px] text-ink-950/40 dark:text-surface/40 mt-1 ${
-                  m.direction === "outbound" ? "text-right" : ""
-                }`}
-              >
-                {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })}
-              </p>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -851,7 +874,19 @@ function ThreadView({
       {!canSend && (
         <p className="text-[11px] text-ink-950/50 dark:text-surface/50 mb-1">Notes on {channelLabel(selected.channel).toLowerCase()} are saved to the history but not sent to the customer.</p>
       )}
-      <div className="flex gap-2 sticky bottom-0 bg-surface dark:bg-ink-950 pt-2">
+      {isEmail && canSend && (
+        <div className="sticky bottom-0 bg-surface dark:bg-ink-950 pt-2 space-y-1.5">
+          <div className="text-[11px] text-ink-950/60 dark:text-surface/60">To: <b>{selected.contact ?? selected.customer.email ?? "—"}</b></div>
+          <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="input w-full text-sm" />
+          <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Write your reply…" rows={5} className="input w-full resize-y text-sm" />
+          <AttachPicker files={files} onChange={setFiles} />
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-ink-950/50 dark:text-surface/50">Your signature and survey link are added automatically.</span>
+            <button onClick={send} disabled={sending || !message.trim()} className="btn-primary text-xs !px-3"><Send size={14} /> {sending ? "Sending…" : "Send"}</button>
+          </div>
+        </div>
+      )}
+      <div className={`flex gap-2 sticky bottom-0 bg-surface dark:bg-ink-950 pt-2 ${isEmail && canSend ? "hidden" : ""}`}>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -898,6 +933,7 @@ function ConvertToCaseForm({
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("");
   const [unitId, setUnitId] = useState("");
+  const [line, setLine] = useState({ viaRegistered: true, contactUsed: "" });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -931,6 +967,8 @@ function ConvertToCaseForm({
         transactionAmount: isTransactional ? Number(amount) : undefined,
         transactionCurrency: isTransactional ? currency : undefined,
         escalatedUnitId: unitFieldVisible && unitId ? unitId : undefined,
+        viaRegistered: line.viaRegistered,
+        contactUsed: line.viaRegistered ? undefined : line.contactUsed.trim() || undefined,
       }),
     });
     setSaving(false);
@@ -989,6 +1027,8 @@ function ConvertToCaseForm({
       </div>
 
       <CaseCodeSelect type={type} value={caseCodeId} onChange={setCaseCodeId} />
+
+      <RegisteredLineField viaRegistered={line.viaRegistered} contactUsed={line.contactUsed} onChange={setLine} />
 
       <TransactionalToggle
         isTransactional={isTransactional}
@@ -1096,5 +1136,63 @@ function SimulateForm({
         Add to inbox
       </button>
     </form>
+  );
+}
+
+
+function HandleEditor({ customerId, fieldKey, label, value, idHint }: { customerId: string; fieldKey: string; label: string; value: string | null; idHint: string | null }) {
+  const [editing, setEditing] = useState(false);
+  const [v, setV] = useState(value ?? "");
+  const [saved, setSaved] = useState<string | null>(value);
+  async function save() {
+    const res = await fetch(`/api/customers/${customerId}/handle`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: fieldKey, value: v }) });
+    if (res.ok) { setSaved(v || null); setEditing(false); }
+  }
+  if (!editing) {
+    return (
+      <button onClick={() => setEditing(true)} className="text-[11px] text-brand hover:underline">
+        {saved ? `Edit ${label.toLowerCase()}` : `+ Add ${label.toLowerCase()}`}{!saved && idHint ? ` (platform ID ${idHint.slice(0, 12)}…)` : ""}
+      </button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1.5 mt-1">
+      <input autoFocus value={v} onChange={(e) => setV(e.target.value)} placeholder={label} className="input !py-0.5 text-xs w-44" />
+      <button onClick={save} className="btn-primary !py-0.5 !px-2 text-[11px]">Save</button>
+      <button onClick={() => setEditing(false)} className="btn-secondary !py-0.5 !px-2 text-[11px]">Cancel</button>
+    </div>
+  );
+}
+
+function ComposeEmail({ onClose, onSent }: { onClose: () => void; onSent: () => void }) {
+  const [to, setTo] = useState("");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [files, setFiles] = useState<Attached[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function send() {
+    setBusy(true); setError(null);
+    const res = await fetch("/api/inbox/compose", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to, subject, message, attachmentIds: files.map((f) => f.id) }) });
+    setBusy(false);
+    if (res.ok) onSent();
+    else setError((await res.json().catch(() => ({}))).error ?? "Could not send");
+  }
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
+      <div className="card w-full max-w-lg p-5 space-y-2" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-sm font-semibold mb-1">New email</h3>
+        <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="To (email address)" className="input w-full text-sm" />
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="input w-full text-sm" />
+        <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Write your message…" rows={8} className="input w-full text-sm" />
+        <AttachPicker files={files} onChange={setFiles} />
+        <p className="text-[11px] text-ink-950/50 dark:text-surface/50">Your signature and survey link are added automatically.</p>
+        {error && <p className="text-xs text-sla-breach">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="btn-secondary text-xs">Cancel</button>
+          <button onClick={send} disabled={busy || !to || !subject || !message.trim()} className="btn-primary text-xs"><Send size={13} /> {busy ? "Sending…" : "Send"}</button>
+        </div>
+      </div>
+    </div>
   );
 }

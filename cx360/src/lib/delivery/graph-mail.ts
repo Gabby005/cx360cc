@@ -57,6 +57,13 @@ export function dropGraphToken(cfg: { azureTenantId: string; clientId: string })
  * permission, then gives us the tenant ID, client ID and mailbox in settings,
  * and the client secret as the server variable CX360_GRAPH_CLIENT_SECRET.
  */
+/** Plain text -> simple HTML so web links in the signature are clickable in every mail app. */
+export function toHtml(text: string): string {
+  const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const linked = esc.replace(/(https?:\/\/[^\s<]+)/g, (u) => `<a href="${u}">${u}</a>`);
+  return `<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;white-space:pre-wrap">${linked}</div>`;
+}
+
 export async function sendViaGraph(cfg: GraphEmailConfig, msg: GatewayMessage, opts: { env?: Env; fetchImpl?: FetchLike } = {}): Promise<SendResult> {
   const env = opts.env ?? process.env;
   const doFetch: FetchLike = opts.fetchImpl ?? ((u, i) => fetch(u, i));
@@ -88,9 +95,10 @@ export async function sendViaGraph(cfg: GraphEmailConfig, msg: GatewayMessage, o
       body: JSON.stringify({
         message: {
           subject: msg.subject ?? "",
-          body: { contentType: "Text", content: msg.message },
+          body: { contentType: "HTML", content: toHtml(msg.message) },
           toRecipients: addresses(msg.to).map((address) => ({ emailAddress: { address } })),
           ccRecipients: (msg.cc ?? []).map((address) => ({ emailAddress: { address } })),
+          ...(msg.attachments?.length ? { attachments: msg.attachments.map((a) => ({ "@odata.type": "#microsoft.graph.fileAttachment", name: a.name, contentType: a.contentType, contentBytes: a.contentBase64 })) } : {}),
         },
         saveToSentItems: false,
       }),

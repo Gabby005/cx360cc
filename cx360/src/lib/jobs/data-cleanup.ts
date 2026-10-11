@@ -23,5 +23,7 @@ export async function runDataCleanup() {
   const errors = await purge("errorLog", { OR: [{ resolved: true, lastSeenAt: { lt: ago(30) } }, { lastSeenAt: { lt: ago(90) } }] });
   const webhooks = await purge("webhookDelivery", { status: { in: ["sent", "failed"] }, createdAt: { lt: ago(30) } });
   const notifications = await purge("notificationLog", { status: { in: ["sent", "failed", "skipped"] }, createdAt: { lt: ago(90) } });
-  return { jobRuns, errors, webhooks, notifications };
+  // Files: kept 30 days after sending (so a retry can still carry them); never-sent uploads go after a day.
+  const files = (await prisma.mailAttachment.deleteMany({ where: { OR: [{ notificationId: { not: null }, createdAt: { lt: ago(30) } }, { notificationId: null, createdAt: { lt: ago(1) } }] } })).count;
+  return { jobRuns, errors, webhooks, notifications, files };
 }

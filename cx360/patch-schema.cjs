@@ -190,6 +190,28 @@ edit("model", "Tenant", "Tenant.inboxTags", /inboxTags\s+Json\?/,
 edit("model", "Case", "Case.reopenedAt", /reopenedAt\s+DateTime\?/,
   after(/^[ \t]*reopenedCount\s+Int.*$/m, "  reopenedAt      DateTime? // when the ticket was last reopened; the SLA clock restarts from here"));
 
+// ---- Messaging: signature, auto-replies, registered-line record ----
+edit("model", "Tenant", "Tenant.messagingSettings", /messagingSettings\s+Json\?/,
+  after(/^[ \t]*inboxTags\s+Json\?.*$/m, "  messagingSettings Json? // email signature + per-channel auto-replies"));
+edit("model", "Case", "Case.viaRegistered/contactUsed", /contactUsed\s+String\?/,
+  after(/^[ \t]*reopenedAt\s+DateTime\?.*$/m, "  viaRegistered   Boolean? // was the customer using the line/email we have on file? (empty = not recorded)\n  contactUsed     String?  // the number/email they actually used, for the record"));
+
+// ---- Email attachments (stored in the database, sent through the email queue) ----
+ensureModel("MailAttachment", `
+model MailAttachment {
+  id             String   @id @default(cuid())
+  tenantId       String
+  notificationId String?  // set once the email is queued; empty = uploaded but not sent yet
+  filename       String
+  contentType    String
+  size           Int
+  data           Bytes
+  createdAt      DateTime @default(now())
+
+  @@index([notificationId])
+  @@index([tenantId, createdAt])
+}`);
+
 fs.writeFileSync(path, s);
 console.log(log.join("\n"));
 console.log("\nschema.prisma updated. Next: npx prisma validate");

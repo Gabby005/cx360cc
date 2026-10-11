@@ -37,6 +37,9 @@ export type CreateCaseInput = {
   /** Required if status is PENDING_BANK/PENDING_THIRD_PARTY; optional otherwise (e.g. a transactional case that just wants a unit informed). */
   escalatedUnitId?: string;
   queueId?: string;
+  /** false = the customer used a number/email that isn't the one we have on file; contactUsed is that number/email (record only). */
+  viaRegistered?: boolean;
+  contactUsed?: string;
   /** Who created this case, for the audit trail. Omitted for API-key-created cases. */
   actorId?: string;
 };
@@ -186,6 +189,8 @@ export async function createCase(tx: Tx, input: CreateCaseInput) {
       transactionAmount: input.transactionAmount,
       transactionCurrency: input.transactionCurrency,
       queueId: input.queueId,
+      viaRegistered: input.viaRegistered,
+      contactUsed: input.viaRegistered === false ? input.contactUsed?.trim().slice(0, 120) || null : null,
       createdById: input.actorId,
       slaPolicyId: policy?.id,
       responseDueAt: policy ? dueAfter(policy.responseMinutes) : null,

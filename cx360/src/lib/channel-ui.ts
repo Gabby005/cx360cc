@@ -8,7 +8,7 @@ export const CHANNEL_LABEL: Record<string, string> = {
   EMAIL: "Email",
   SMS: "SMS",
   INSTAGRAM: "Instagram",
-  MESSENGER: "Messenger",
+  MESSENGER: "Facebook",
   X: "X (Twitter)",
   CHAT: "Web chat",
   PORTAL: "Portal",

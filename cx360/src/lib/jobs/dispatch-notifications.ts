@@ -97,6 +97,9 @@ export async function runDispatchNotifications() {
           continue;
         }
 
+        const files = row.channel === "email"
+          ? (await prisma.mailAttachment.findMany({ where: { notificationId: row.id }, select: { filename: true, contentType: true, data: true } })).map((f) => ({ name: f.filename, contentType: f.contentType, contentBase64: Buffer.from(f.data).toString("base64") }))
+          : [];
         const res = row.channel === "x"
           ? await (async () => { const t = await getXAccessToken(row.tenantId); return t.ok ? sendX(t.token, row.to, row.message) : { ok: false, error: t.error }; })()
           : isMeta
@@ -107,6 +110,7 @@ export async function runDispatchNotifications() {
               cc: splitList(row.cc),
               subject: row.subject ?? undefined,
               message: row.message,
+              ...(files.length ? { attachments: files } : {}),
             });
 
         if (res.ok) {

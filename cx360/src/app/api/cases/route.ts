@@ -54,6 +54,8 @@ const createSchema = z
     transactionCurrency: z.enum(CURRENCIES).optional(),
     escalatedUnitId: z.string().optional(),
     queueId: z.string().optional(),
+    viaRegistered: z.boolean().optional(),
+    contactUsed: z.string().max(120).optional(),
     /** Set when the case was started with "Reuse this ticket" from a closed ticket. */
     reusedFromId: z.string().optional(),
   })

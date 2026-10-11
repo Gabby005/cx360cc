@@ -21,6 +21,8 @@ const schema = z
     transactionAmount: z.number().positive().optional(),
     transactionCurrency: z.enum(CURRENCIES).optional(),
     escalatedUnitId: z.string().optional(),
+    viaRegistered: z.boolean().optional(),
+    contactUsed: z.string().max(120).optional(),
   })
   .refine((data) => !data.isTransactional || (data.transactionAmount && data.transactionCurrency), {
     message: "Amount and currency are required for a transactional case.",
@@ -57,6 +59,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         transactionAmount: body.transactionAmount,
         transactionCurrency: body.transactionCurrency,
         escalatedUnitId: body.escalatedUnitId,
+        viaRegistered: body.viaRegistered,
+        contactUsed: body.contactUsed,
         actorId: ctx.userId,
       });
 

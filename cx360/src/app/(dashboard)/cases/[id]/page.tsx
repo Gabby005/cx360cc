@@ -215,6 +215,18 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
               </div>
             </Link>
             {c.customer.segment && <span className="pill-brand mt-3">{c.customer.segment}</span>}
+            <div className="mt-3 pt-3 border-t border-line-light dark:border-line-dark text-xs space-y-1">
+              {[c.customer.phone, c.customer.email].filter(Boolean).map((v) => <div key={v} className="truncate"><span className="text-ink-950/50 dark:text-surface/50">On file:</span> {v}</div>)}
+              {(["instagramHandle", "xHandle", "facebookName"] as const).map((k) => {
+                const v = ((c.customer.customFields ?? {}) as Record<string, unknown>)[k];
+                return typeof v === "string" && v ? <div key={k} className="truncate"><span className="text-ink-950/50 dark:text-surface/50">{k === "instagramHandle" ? "Instagram" : k === "xHandle" ? "X" : "Facebook"}:</span> {v}</div> : null;
+              })}
+              {c.viaRegistered === false ? (
+                <div className="text-sla-warning"><span className="font-medium">Not on registered line.</span> Used: {c.contactUsed || "not recorded"}</div>
+              ) : c.viaRegistered === true ? (
+                <div className="text-ink-950/50 dark:text-surface/50">Using registered line / email</div>
+              ) : null}
+            </div>
           </div>
 
           {c.isTransactional && (

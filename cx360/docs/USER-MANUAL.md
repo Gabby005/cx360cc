@@ -162,3 +162,19 @@ All under **Admin**.
 4. Case: set status, add comment, pick the unit if pending.
 5. Red SLA first.
 6. End of day: nothing left in Inbox, no red cases unassigned.
+
+## Email signature, auto-replies and customer identifiers
+
+**Email signature (Admin → Messages & signature).** Every email an agent sends from the Inbox carries: "Thank you for choosing PremiumTrust Bank / Please reply via the same mail trail / Regards, *agent name*" and a clickable survey link. Set the bank name and paste the SurveyMonkey link there; a preview shows exactly what customers see. Leave the link blank to send without one.
+
+**Automatic replies.** On the same page, switch on an automatic reply per channel (Email, WhatsApp, SMS, Instagram, Facebook, X, and an SMS for missed phone calls) and edit the wording. A customer gets at most one automatic reply every few hours (default 6; you can change it), so five quick messages don't produce five replies. Auto-replies show as "Auto-reply" in the conversation and are not counted as an agent's response in reports. They only go out when the channel is connected.
+
+**Email works like a mail client.** Open an email in the Inbox to see it as mail (From/To, time, message), with a Subject line and a larger reply box. The envelope button beside the search box starts a **New email** to any address.
+
+**Identifiers.** Each conversation shows how the customer reached you: phone number (WhatsApp, SMS, calls), email, or social handle. Instagram, X and Facebook only give a platform ID, so click "+ Add handle" once to type it; it then shows on every conversation and on the ticket. Facebook is the former "Messenger" channel; unused Portal, Web chat and Other social tiles are hidden until they receive something.
+
+**Registered line.** When logging a ticket (new ticket or from the Inbox), tick whether the customer is using their registered line/email. If not, type the number or email they used. It is for the record and shows on the ticket's customer card.
+
+## Email attachments and the email queue
+
+In **New email** and in an email reply, use **Attach** to add up to 3 files (3 MB each, 4 MB in total). Programs and scripts (.exe, .bat, .js and similar) are blocked. Attachments need the Microsoft 365 email connection. Files are stored securely in CX360, go out with the email through the normal queue (failed sends retry automatically), and are removed after 30 days. The Integration hub's "Things to look at" shows how many emails are waiting or failed, and whether attachments are on. Attachments on emails *received* from customers are not saved yet.

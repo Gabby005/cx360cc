@@ -175,7 +175,8 @@ const ROW_LIMIT = 30_000;
 export async function getChannelStats(tenantId: string, start: Date, end: Date): Promise<ChannelStats & { truncated: boolean }> {
   const { prisma } = await import("@/lib/prisma");
   const rows = await prisma.interaction.findMany({
-    where: { tenantId, createdAt: { gte: start } },
+    // Automatic "we got your message" replies are not an agent's response, so they stay out of the numbers.
+    where: { tenantId, createdAt: { gte: start }, NOT: { externalId: { startsWith: "auto:" } } },
     select: { id: true, customerId: true, channel: true, direction: true, status: true, createdAt: true, summary: true },
     orderBy: { createdAt: "asc" },
     take: ROW_LIMIT,

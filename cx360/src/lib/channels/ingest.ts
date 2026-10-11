@@ -2,6 +2,7 @@ import { Prisma, PrismaClient, Channel } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logCaseActivity } from "@/lib/case-service";
 import { clip, extractCaseNumber, phoneKey } from "./text";
+import { maybeAutoReply } from "./auto-reply";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -28,6 +29,8 @@ export type InboundMessage = {
 export type IngestResult = { id: string | null; customerId: string | null; duplicate: boolean; linkedCaseId: string | null; createdCustomer: boolean; flagged?: boolean };
 
 const FLOOD_PER_HOUR = 30;
+/** Where the readable name/handle of a social contact is kept (the id itself is in socialKey). */
+export const HANDLE_KEY = { instagramId: "instagramHandle", messengerId: "facebookName", xId: "xHandle" } as const;
 const isEmail = (c: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c);
 
 /** Finds the customer for a contact point, or null. Phone matching ignores formatting (last 10 digits). */
@@ -64,7 +67,7 @@ export async function ingestInbound(tenantId: string, m: InboundMessage, db: Db 
         email: email ? m.contact : null,
         phone: !email && !social ? m.contact : null,
         segment: "Unverified",
-        customFields: { autoCreated: true, source: m.channel.toLowerCase(), ...(social ? { [social]: m.contact } : {}) },
+        customFields: { autoCreated: true, source: m.channel.toLowerCase(), ...(social ? { [social]: m.contact } : {}), ...(social && m.name ? { [HANDLE_KEY[social]]: m.name } : {}) },
       },
       select: { id: true },
     });
@@ -108,6 +111,10 @@ export async function ingestInbound(tenantId: string, m: InboundMessage, db: Db 
     });
     if (linked && !outbound) {
       await logCaseActivity(db, { tenantId, caseId: linked.id, action: "customer_replied", after: { channel: m.channel.toLowerCase() } }).catch(() => {});
+    }
+    // Automatic "we got your message" reply (never allowed to break receiving the message itself).
+    if (!outbound && !flagged && !(m.historyOnly && m.channel !== "VOICE")) {
+      await maybeAutoReply(db, tenantId, { customerId, channel: m.channel, contact: m.contact, subject: m.subject, interactionId: row.id, missedCall: m.channel === "VOICE" && !m.historyOnly, socialKey: m.socialKey }).catch((e) => console.error("[auto-reply]", e));
     }
     return { id: row.id, customerId, duplicate: false, linkedCaseId: linked?.id ?? null, createdCustomer, flagged };
   } catch (err) {

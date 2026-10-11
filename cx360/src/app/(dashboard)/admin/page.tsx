@@ -120,6 +120,10 @@ export default async function AdminPage() {
             Upload your logo and set a brand color — applied across the whole app, including the login page and the browser tab.
           </Tile>
 
+          <Tile title="Messages & signature" href="/admin/messaging" link="Edit">
+            The signature on every agent email (with your survey link) and the automatic replies customers get on each channel.
+          </Tile>
+
           <Tile title="Users & roles" href="/admin/users" link="Manage users">
             {memberCount} {memberCount === 1 ? "person" : "people"}. Create agents and supervisors, set their team and department, and change roles.
           </Tile>

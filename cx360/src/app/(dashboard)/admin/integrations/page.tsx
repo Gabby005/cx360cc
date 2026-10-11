@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/tenant";
 import { ApiKeysPanel, WebhooksPanel, ResendButton } from "@/components/admin/integrations-client";
 import { EVENT_CATALOG } from "@/lib/event-catalog";
 import { parseCoreSettings } from "@/lib/core-banking/config";
+import { parseDeliverySettings } from "@/lib/delivery/config";
 import { getDeliveryStatus } from "@/lib/delivery-status";
 import { CheckCircle2, CircleAlert } from "lucide-react";
 
@@ -29,13 +30,17 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
   const tab: Tab = TABS.some((x) => x.k === searchParams.tab) ? (searchParams.tab as Tab) : "overview";
   const day = new Date(Date.now() - 86_400_000);
 
-  const [keys, webhooks, delivery, tenantRow, stats] = await Promise.all([
+  const [keys, webhooks, delivery, tenantRow, stats, mailWaiting, mailFailed, mailRow] = await Promise.all([
     prisma.apiKey.findMany({ where: { tenantId: t }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, scopes: true, lastUsedAt: true, createdAt: true, revokedAt: true } }),
     prisma.webhookSubscription.findMany({ where: { tenantId: t }, orderBy: { createdAt: "desc" } }),
     getDeliveryStatus(t),
     prisma.tenant.findUnique({ where: { id: t }, select: { coreBankingSettings: true } }),
     prisma.webhookDelivery.groupBy({ by: ["subscriptionId", "status"], where: { tenantId: t, createdAt: { gte: day } }, _count: true }),
+    prisma.notificationLog.count({ where: { tenantId: t, channel: "email", status: "queued" } }),
+    prisma.notificationLog.count({ where: { tenantId: t, channel: "email", status: "failed", createdAt: { gte: day } } }),
+    prisma.tenant.findUnique({ where: { id: t }, select: { deliverySettings: true } }),
   ]);
+  const graphMail = parseDeliverySettings(mailRow?.deliverySettings).email.provider === "graph";
   const count = (sub: string | null, status: string) => stats.filter((s) => (!sub || s.subscriptionId === sub) && s.status === status).reduce((n, s) => n + s._count, 0);
   const activeKeys = keys.filter((k) => !k.revokedAt);
   const staleKeys = activeKeys.filter((k) => !k.lastUsedAt || Date.now() - k.lastUsedAt.getTime() > 90 * 86_400_000);
@@ -88,6 +93,8 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
               {[
                 { ok: delivery.sms, text: delivery.sms ? "Bank SMS gateway is connected." : "Bank SMS gateway isn't connected yet — customers won't get SMS.", href: "/admin/notifications?tab=delivery" },
                 { ok: delivery.email, text: delivery.email ? "Email is connected." : "Email isn't connected yet — customers and managers won't get emails.", href: "/admin/notifications?tab=delivery" },
+                { ok: mailFailed === 0 && mailWaiting < 20, text: mailFailed === 0 ? `Email queue: ${mailWaiting} waiting, none failed in the last 24 hours.` : `Email queue: ${mailFailed} email${mailFailed === 1 ? "" : "s"} failed in the last 24 hours (${mailWaiting} waiting).`, href: "/admin/notifications?tab=log&channel=email&status=failed" },
+                { ok: graphMail, text: graphMail ? "Email attachments are on (stored securely, sent with the email, removed after 30 days)." : "Email attachments are off — they need the Microsoft 365 email connection.", href: "/admin/notifications?tab=delivery" },
                 { ok: failing === 0, text: failing === 0 ? "No webhook deliveries are failing." : `${failing} webhook deliveries failed in the last 24 hours.`, href: "/admin/integrations?tab=deliveries&status=failed" },
                 { ok: staleKeys.length === 0, text: staleKeys.length === 0 ? "No unused API keys." : `${staleKeys.length} API key${staleKeys.length === 1 ? " hasn't" : "s haven't"} been used in 90 days — revoke ${staleKeys.length === 1 ? "it" : "them"} if no longer needed.`, href: "/admin/integrations?tab=keys" },
               ].map((r) => (
